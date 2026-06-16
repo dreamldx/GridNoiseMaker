@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Local tooling configuration (per-machine, not shared)
+.claude/
+.opencode/
+
+# Build artifacts (anticipated for upcoming C++ work)
+build/
+out/
+cmake-build-*/
+
+# IDE caches
+.vscode/
+.idea/
+*.swp
