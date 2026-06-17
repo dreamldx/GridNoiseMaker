@@ -1,0 +1,71 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "macos",
+            "displayName": "macOS desktop (Vulkan via MoltenVK)",
+            "inherits": "base",
+            "generator": "Ninja",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "linux",
+            "displayName": "Linux desktop (Vulkan)",
+            "inherits": "base",
+            "generator": "Ninja",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "windows",
+            "displayName": "Windows desktop (Vulkan)",
+            "inherits": "base",
+            "generator": "Visual Studio 17 2022",
+            "architecture": { "value": "x64", "strategy": "set" },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "ios",
+            "displayName": "iOS (Metal + UIKit)",
+            "inherits": "base",
+            "generator": "Xcode",
+            "cacheVariables": {
+                "CMAKE_SYSTEM_NAME": "iOS",
+                "CMAKE_OSX_DEPLOYMENT_TARGET": "15.0",
+                "CMAKE_XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY": "1,2",
+                "CMAKE_OSX_ARCHITECTURES": "arm64"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        }
+    ],
+    "buildPresets": [
+        { "name": "macos",   "configurePreset": "macos" },
+        { "name": "linux",   "configurePreset": "linux" },
+        { "name": "windows", "configurePreset": "windows", "configuration": "Debug" },
+        { "name": "ios",     "configurePreset": "ios",     "configuration": "Debug" }
+    ]
+}

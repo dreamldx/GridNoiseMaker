@@ -1,0 +1,78 @@
+name: imgui-shell build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/imgui-shell/**'
+      - '.github/workflows/imgui-shell-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/imgui-shell/**'
+      - '.github/workflows/imgui-shell-build.yml'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            preset: macos
+          - os: ubuntu-latest
+            preset: linux
+          - os: windows-latest
+            preset: windows
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: apps/imgui-shell
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          curl -L https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip -o vulkan-sdk.zip
+          unzip -q vulkan-sdk.zip -d vulkan-sdk
+          INSTALLER=$(find vulkan-sdk -name "InstallVulkan.app" -type d | head -1)
+          sudo "$INSTALLER/Contents/MacOS/InstallVulkan" \
+            --root "$HOME/VulkanSDK" \
+            --accept-licenses --default-answer --confirm-command install
+          SDK_DIR=$(ls -d $HOME/VulkanSDK/*/ | head -1)
+          echo "VULKAN_SDK=${SDK_DIR}macOS" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=${SDK_DIR}macOS/lib" >> "$GITHUB_ENV"
+          echo "${SDK_DIR}macOS/bin" >> "$GITHUB_PATH"
+
+      - name: Install Vulkan SDK + GLFW deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gpg xorg-dev libwayland-dev libxkbcommon-dev
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/lunarg.gpg
+          UBUNTU_CODENAME=$(lsb_release -cs)
+          echo "deb [signed-by=/usr/share/keyrings/lunarg.gpg] https://packages.lunarg.com/vulkan/${UBUNTU_CODENAME} ${UBUNTU_CODENAME} main" \
+            | sudo tee /etc/apt/sources.list.d/lunarg-vulkan.list
+          sudo apt-get update
+          sudo apt-get install -y vulkan-sdk ninja-build
+
+      - name: Install Vulkan SDK (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $url = "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe"
+          Invoke-WebRequest -Uri $url -OutFile vulkan-sdk.exe
+          Start-Process -FilePath ".\vulkan-sdk.exe" `
+            -ArgumentList "--root", "C:\VulkanSDK", "--accept-licenses", "--default-answer", "--confirm-command", "install" `
+            -Wait -NoNewWindow
+          $sdkDir = (Get-ChildItem -Directory "C:\VulkanSDK" | Select-Object -First 1).FullName
+          "VULKAN_SDK=$sdkDir" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "$sdkDir\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
