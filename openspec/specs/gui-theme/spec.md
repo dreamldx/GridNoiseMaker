@@ -42,20 +42,22 @@ The About dialog SHALL display the active theme name on a dedicated line, so the
 - **WHEN** a user opens `Help > About...` in any build
 - **THEN** the dialog SHALL include a line of the form `"Theme: <name>"` where `<name>` matches `IMGUI_SHELL_THEME_NAME` (default value: `"imgui-shell dark"`)
 
-### Requirement: Theme is a build-time decision in v1
-The application SHALL NOT expose runtime theme selection, runtime color editing, or a `Help > Theme > ...` menu in v1. The theme is a single coherent choice baked into the binary; future capabilities MAY add a switcher in follow-up changes, but those are out of scope here.
 
-#### Scenario: No runtime theme picker in v1
-- **WHEN** the codebase is grepped for runtime theme-changing UI
-- **THEN** there SHALL be no menu item, settings panel, hotkey, or `app::*` API that selects a different theme, edits theme colors, or reloads theme values at runtime
 
 ### Requirement: Theme owns typography defaults (font family, size, text color)
-The theme SHALL define three typography constants in `app/Theme.h` — `kThemeFontFile` (asset-relative path to the bundled font), `kThemeFontSizePx` (pixel size to load), and `kThemeTextColor` (foreground text color) — and the font-rendering layer's font-atlas configuration SHALL source the font path + pixel size from these constants. The theme's `ImGuiCol_Text` slot in `applyTheme` SHALL be assigned from `kThemeTextColor` so the color and the typography stay in sync within one source of truth.
+The theme SHALL define three typography concepts in `app/Theme.h`:
+- `kThemeTextColor` — a `constexpr ImVec4` used as the `ImGuiCol_Text` baseline (still a compile-time constant; this slot is also covered by the `colors` section of `theme.json` per `theme-persistence`).
+- `kDefaultThemeFontFile` / `kDefaultThemeFontSizePx` — `constexpr` baked-in defaults for the font path and pixel size.
+- `app::themeFontFile()` / `app::themeFontSizePx()` — accessor functions returning the CURRENT values (defaults initially; mutable via the matching setters when `theme-persistence` applies a `typography` override).
+- `app::setThemeFontFile(std::string)` / `app::setThemeFontSizePx(float)` — setters used by `ThemeStorage`'s `readThemeFromConfig` when a valid `typography` override is parsed; out-of-band callers MAY also call them but are not expected to.
 
-#### Scenario: Font atlas uses theme-owned constants
+The font-rendering layer's font-atlas configuration SHALL source the font path + pixel size from the accessors (not the `constexpr` defaults directly), so `theme.json` overrides take effect. The theme's `ImGuiCol_Text` slot in `applyTheme` SHALL continue to be assigned from `kThemeTextColor` so the color and the baked-in typography defaults stay in sync within one source of truth.
+
+#### Scenario: Font atlas uses theme accessors, not raw constants
 - **WHEN** `app::init` configures the font atlas
-- **THEN** `io.Fonts->AddFontFromFileTTF` SHALL be called with a path derived from `app::kThemeFontFile` and a pixel size equal to `app::kThemeFontSizePx`
-- **AND** the call SHALL NOT use the previously-existing `IMGUI_SHELL_DEFAULT_FONT_PX` compile definition (which is removed by this change)
+- **THEN** `io.Fonts->AddFontFromFileTTF` SHALL be called with a path derived from `app::themeFontFile()` (NOT from `kDefaultThemeFontFile` directly) and a pixel size equal to `app::themeFontSizePx()` (NOT `kDefaultThemeFontSizePx` directly)
+- **AND** when no `theme.json` override is active, those accessors return the baked-in default values
+- **AND** the call SHALL NOT use the previously-existing `IMGUI_SHELL_DEFAULT_FONT_PX` compile definition (which was removed by `add-gui-theme`)
 
 #### Scenario: Text color in style matches theme constant
 - **WHEN** `app::applyTheme(style)` returns

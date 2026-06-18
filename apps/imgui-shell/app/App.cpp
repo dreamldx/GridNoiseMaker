@@ -9,6 +9,12 @@
     #include <imgui_freetype.h>
 #endif
 
+#include <filesystem>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <cassert>
 #include <cstdio>
 #include <filesystem>
@@ -55,8 +61,8 @@ bool g_fontRebuildPending = false;
 
 } // namespace
 
-void configureFontAtlas() {
-    ImGuiIO& io = ImGui::GetIO();
+  void configureFontAtlas() {
+      ImGuiIO& io = ImGui::GetIO();
 
 #ifdef IMGUI_ENABLE_FREETYPE
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
@@ -67,37 +73,37 @@ void configureFontAtlas() {
     cfg.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LightHinting;
 #endif
 
-    // Font asset path + pixel size come from the theme accessors (see app/Theme.h).
-    const std::string& themeFontPath = app::themeFontFile();
-    const bool isAbsolute = !themeFontPath.empty() &&
-        (themeFontPath.front() == '/' || themeFontPath.find(":\\") != std::string::npos);
-    const std::string fontPath = isAbsolute
-        ? themeFontPath
-        : resolveAssetPath(themeFontPath.c_str());
-    ImFont* font = io.Fonts->AddFontFromFileTTF(
-        fontPath.c_str(),
-        app::themeFontSizePx(),
-        &cfg);
-
-    if (!font) {
-        std::fprintf(stderr,
-            "[imgui-shell] failed to load bundled font at '%s' — falling back to Proggy Clean.\n",
-            fontPath.c_str());
-        io.Fonts->AddFontDefault();
-        g_fontFallback = true;
-    }
-}
+// Font asset path + pixel size come from the theme accessors (see app/Theme.h).
+      const std::string& themeFontPath = app::themeFontFile();
+      const bool isAbsolute = !themeFontPath.empty() &&
+          (themeFontPath.front() == '/' || themeFontPath.find(":\\") != std::string::npos);
+      const std::string fontPath = isAbsolute
+          ? themeFontPath
+          : resolveAssetPath(themeFontPath.c_str());
+      
+      if (!fontPath.empty() && std::filesystem::exists(fontPath)) {
+          ImFont* font = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), app::themeFontSizePx(), &cfg);
+          if (font != nullptr) {
+              g_fontFallback = false;
+              return;
+          }
+      }
+      
+      // Fallback to default font if loading fails
+      io.Fonts->AddFontDefault();
+      g_fontFallback = true;
+  }
 
 void registerRebuildFontAtlasCallback(RebuildFontAtlasFn cb) {
     g_rebuildFontAtlasCb = cb;
 }
 
-void rebuildFontAtlas() {
-    // ImGui locks the font atlas between NewFrame and Render — Fonts->Clear()
-    // asserts if called inside that window. Set a flag instead; app::frame
-    // drains it at the top of the next frame, before NewFrame locks the atlas.
-    g_fontRebuildPending = true;
-}
+  void rebuildFontAtlas() {
+      // ImGui locks the font atlas between NewFrame and Render — Fonts->Clear()
+      // asserts if called inside that window. Set a flag instead; app::frame
+      // drains it at the top of the next frame, before NewFrame locks the atlas.
+      g_fontRebuildPending = true;
+  }
 
 namespace detail {
 
@@ -161,12 +167,12 @@ void init(RenderContext& ctx) {
 void frame(RenderContext& /*ctx*/) {
     detail::ensureInitialized();
 
-    // Drain any pending font-atlas rebuild BEFORE NewFrame locks the atlas.
-    // See rebuildFontAtlas() for why this is deferred.
-    if (g_fontRebuildPending && g_rebuildFontAtlasCb) {
-        g_rebuildFontAtlasCb();
-        g_fontRebuildPending = false;
-    }
+      // Drain any pending font-atlas rebuild BEFORE NewFrame locks the atlas.
+      // See rebuildFontAtlas() for why this is deferred.
+      if (g_fontRebuildPending && g_rebuildFontAtlasCb) {
+          g_rebuildFontAtlasCb();
+          g_fontRebuildPending = false;
+      }
 
     ImGui::NewFrame();
 
@@ -321,29 +327,33 @@ void applySelectedThemeToStyle(ImGuiStyle& style) {
     app::readThemeFile(hit->path, style);
 }
 
-void switchTheme(const std::string& name) {
-    app::writeSelectedThemeName(name);
-    // writeSelectedThemeName already updated the cached selection on success.
-    app::applySelectedThemeToStyle(ImGui::GetStyle());
-}
+  void switchTheme(const std::string& name) {
+      app::writeSelectedThemeName(name);
+      // writeSelectedThemeName already updated the cached selection on success.
+      app::applySelectedThemeToStyle(ImGui::GetStyle());
+      // Rebuild font atlas to apply any font changes from the new theme
+      app::rebuildFontAtlas();
+  }
 
-void resetSelectedTheme() {
-    const std::string name = app::selectedThemeName();
+  void resetSelectedTheme() {
+      const std::string name = app::selectedThemeName();
 
-    // Find the bundled origin (if any) — user-dir entries don't count as
-    // "origin" since they are exactly what we're about to delete.
-    std::string bundledPath = app::resolveAssetPath(("themes/" + name + ".json").c_str());
-    std::error_code ec;
-    if (!std::filesystem::exists(bundledPath, ec)) {
-        std::fprintf(stderr,
-            "[imgui-shell] Reset: '%s' has no bundled origin; no action taken\n",
-            name.c_str());
-        return;
-    }
+      // Find the bundled origin (if any) — user-dir entries don't count as
+      // "origin" since they are exactly what we're about to delete.
+      std::string bundledPath = app::resolveAssetPath(("themes/" + name + ".json").c_str());
+      std::error_code ec;
+      if (!std::filesystem::exists(bundledPath, ec)) {
+          std::fprintf(stderr,
+              "[imgui-shell] Reset: '%s' has no bundled origin; no action taken\n",
+              name.c_str());
+          return;
+      }
 
-    // Delete the user-dir copy (silent if not present), then reload the bundled file.
-    std::filesystem::remove(app::userThemePath(name), ec);
-    app::readThemeFile(bundledPath, ImGui::GetStyle());
-}
+      // Delete the user-dir copy (silent if not present), then reload the bundled file.
+      std::filesystem::remove(app::userThemePath(name), ec);
+      app::readThemeFile(bundledPath, ImGui::GetStyle());
+      // Rebuild font atlas to apply font changes
+      app::rebuildFontAtlas();
+  }
 
 } // namespace app

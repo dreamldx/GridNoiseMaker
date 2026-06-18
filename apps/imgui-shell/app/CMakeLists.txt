@@ -20,6 +20,12 @@ target_include_directories(imgui_shell_app PUBLIC
 
 target_link_libraries(imgui_shell_app PUBLIC imgui nlohmann_json::nlohmann_json)
 
+if(IMGUI_SHELL_DESKTOP)
+    target_include_directories(imgui_shell_app PRIVATE
+        ${Vulkan_INCLUDE_DIR}
+    )
+endif()
+
 target_compile_features(imgui_shell_app PUBLIC cxx_std_17)
 target_compile_options(imgui_shell_app PRIVATE ${IMGUI_SHELL_WARNINGS})
 set_target_properties(imgui_shell_app PROPERTIES POSITION_INDEPENDENT_CODE ON)
