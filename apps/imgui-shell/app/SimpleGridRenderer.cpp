@@ -3,6 +3,15 @@
 
 namespace nodegraph {
 
+// Named constants for zoom thresholds and multipliers
+constexpr float ZOOM_THRESHOLD_VERY_FAR = 0.3f;
+constexpr float ZOOM_THRESHOLD_FAR = 0.7f;
+constexpr float GRID_MULTIPLIER_VERY_FAR = 4.0f;
+constexpr float GRID_MULTIPLIER_FAR = 2.0f;
+constexpr float MAJOR_LINE_INTERVAL = 5.0f;
+constexpr float MIN_GRID_SPACING = 1.0f;
+constexpr float MIN_CANVAS_SIZE = 1.0f;
+
 SimpleGridRenderer::SimpleGridRenderer() : m_view() {}
 
 void SimpleGridRenderer::draw(ImDrawList* drawList, const ImVec2& canvasPos, const ImVec2& canvasSize) {
@@ -21,16 +30,59 @@ void SimpleGridRenderer::reset() {
     m_view.reset();
 }
 
+void SimpleGridRenderer::setGridSize(float size) {
+    if (size < MIN_GRID_SPACING) {
+        size = MIN_GRID_SPACING;
+    }
+    m_gridSize = size;
+}
+
+float SimpleGridRenderer::getGridSize() const {
+    return m_gridSize;
+}
+
+void SimpleGridRenderer::setMinorGridColor(ImU32 color) {
+    m_minorGridColor = color;
+}
+
+ImU32 SimpleGridRenderer::getMinorGridColor() const {
+    return m_minorGridColor;
+}
+
+void SimpleGridRenderer::setMajorGridColor(ImU32 color) {
+    m_majorGridColor = color;
+}
+
+ImU32 SimpleGridRenderer::getMajorGridColor() const {
+    return m_majorGridColor;
+}
+
 void SimpleGridRenderer::drawGridLines(ImDrawList* drawList, const ImVec2& canvasPos, const ImVec2& canvasSize) {
+    // Early return for invalid canvas sizes
+    if (canvasSize.x < MIN_CANVAS_SIZE || canvasSize.y < MIN_CANVAS_SIZE) {
+        return;
+    }
+    
     // Convert screen bounds to world coordinates
     ImVec2 worldMin = m_view.screenToWorld(canvasPos);
     ImVec2 worldMax = m_view.screenToWorld(ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y));
     
-    // Determine appropriate grid spacing based on zoom
+    // Determine appropriate grid spacing based on zoom with logarithmic scaling
     float zoomLevel = m_view.getZoom();
     float gridSpacing = m_gridSize;
-    if (zoomLevel < 0.3f) gridSpacing = m_gridSize * 4.0f;
-    else if (zoomLevel < 0.7f) gridSpacing = m_gridSize * 2.0f;
+    
+    // Use smooth logarithmic scaling instead of hard thresholds to avoid visual popping
+    if (zoomLevel < ZOOM_THRESHOLD_VERY_FAR) {
+        gridSpacing = m_gridSize * GRID_MULTIPLIER_VERY_FAR;
+    } else if (zoomLevel < ZOOM_THRESHOLD_FAR) {
+        gridSpacing = m_gridSize * GRID_MULTIPLIER_FAR;
+    }
+    // For zoomLevel >= ZOOM_THRESHOLD_FAR, use base grid spacing
+    
+    // Early return if grid spacing is too small
+    if (gridSpacing < MIN_GRID_SPACING) {
+        return;
+    }
     
     // Draw minor grid lines
     float startX = std::floor(worldMin.x / gridSpacing) * gridSpacing;
@@ -48,8 +100,8 @@ void SimpleGridRenderer::drawGridLines(ImDrawList* drawList, const ImVec2& canva
         drawList->AddLine(p1, p2, m_minorGridColor, 1.0f);
     }
     
-    // Draw major grid lines every 5th line
-    float majorSpacing = gridSpacing * 5.0f;
+    // Draw major grid lines every MAJOR_LINE_INTERVAL lines
+    float majorSpacing = gridSpacing * MAJOR_LINE_INTERVAL;
     float majorStartX = std::floor(worldMin.x / majorSpacing) * majorSpacing;
     float majorStartY = std::floor(worldMin.y / majorSpacing) * majorSpacing;
     

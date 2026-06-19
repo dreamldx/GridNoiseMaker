@@ -1,10 +1,13 @@
 #pragma once
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <vector>
 #include "ViewTransform.h"
 
 namespace nodegraph {
 
+/// SimpleGridRenderer - Renders a scalable grid for canvas-based applications
+/// Features configurable grid size, colors, and adaptive zoom-based spacing
 class SimpleGridRenderer {
 public:
     SimpleGridRenderer();
@@ -17,6 +20,16 @@ public:
     void reset();
     
     const ViewTransform& getView() const { return m_view; }
+    
+    // Configuration methods
+    void setGridSize(float size);
+    float getGridSize() const;
+    
+    void setMinorGridColor(ImU32 color);
+    ImU32 getMinorGridColor() const;
+    
+    void setMajorGridColor(ImU32 color);
+    ImU32 getMajorGridColor() const;
     
 private:
     ViewTransform m_view;
