@@ -2,7 +2,7 @@
 #include <windows.h>
 
 // Application icon
-IDI_APP_ICON ICON "../assets/app_icon.ico"
+IDI_APP_ICON ICON "app_icon.ico"
 
 // Version information
 VS_VERSION_INFO VERSIONINFO

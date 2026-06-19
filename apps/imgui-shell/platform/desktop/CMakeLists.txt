@@ -51,4 +51,15 @@ add_custom_command(TARGET imgui_shell_desktop POST_BUILD
     VERBATIM
 )
 
+# Copy icon to build directory for resource compilation (Windows only)
+if(WIN32)
+    add_custom_command(TARGET imgui_shell_desktop PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_SOURCE_DIR}/assets/app_icon.ico
+            ${CMAKE_CURRENT_BINARY_DIR}/app_icon.ico
+        COMMENT "Copying app_icon.ico to build directory for resource compilation"
+        VERBATIM
+    )
+endif()
+
 
