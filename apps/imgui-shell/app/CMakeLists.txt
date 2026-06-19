@@ -14,14 +14,8 @@ add_library(imgui_shell_app STATIC
     ThemeStorage.cpp
     
     # Node graph widget files
-    VulkanTexture.cpp
-    VulkanTexture.h
-    GridTextureCache.cpp
-    GridTextureCache.h
     ViewTransform.cpp
     ViewTransform.h
-    GridRenderer.cpp
-    GridRenderer.h
     SimpleGridRenderer.cpp
     SimpleGridRenderer.h
     NodeGraphWidget.cpp

@@ -3,6 +3,9 @@
 #include "Theme.h"
 #include "ThemeStorage.h"
 
+// Node graph widget
+#include "NodeGraphWidget.h"
+
 #include <imgui.h>
 
 #ifdef IMGUI_ENABLE_FREETYPE
@@ -46,6 +49,16 @@ RebuildFontAtlasFn g_rebuildFontAtlasCb = nullptr;
 // the atlas is locked, so synchronous rebuild from the widget body is
 // unsafe; defer to between-frames.
 bool g_fontRebuildPending = false;
+
+// Node graph widget state
+bool g_showNodeGraph = false;
+std::unique_ptr<nodegraph::NodeGraphWidget> g_nodeGraphWidget;
+
+#if defined(IMGUI_SHELL_PLATFORM_DESKTOP)
+// Vulkan resources for node graph texture cache
+VkDevice g_vulkanDevice = VK_NULL_HANDLE;
+VkDescriptorPool g_vulkanDescriptorPool = VK_NULL_HANDLE;
+#endif
 
 #if !defined(IMGUI_SHELL_PLATFORM_NAME)
     #define IMGUI_SHELL_PLATFORM_NAME "unknown"
@@ -132,6 +145,11 @@ void init(RenderContext& ctx) {
 
 #if defined(IMGUI_SHELL_PLATFORM_DESKTOP)
     g_physicalDevice = ctx.physicalDevice;
+    g_vulkanDevice = ctx.device;
+    g_vulkanDescriptorPool = ctx.descriptorPool;
+    
+    // Create node graph widget (no Vulkan dependencies)
+    g_nodeGraphWidget = std::make_unique<nodegraph::NodeGraphWidget>();
 #else
     (void)ctx;
 #endif
@@ -189,6 +207,13 @@ void frame(RenderContext& /*ctx*/) {
                 if (ImGui::MenuItem("Quit")) {
                     g_quitRequested = true;
                 }
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("View")) {
+            if (ImGui::MenuItem("Node Graph", nullptr, &g_showNodeGraph)) {
+                // Toggle handled by ImGui
             }
             ImGui::EndMenu();
         }
@@ -261,6 +286,12 @@ void frame(RenderContext& /*ctx*/) {
 
     app::renderPreferencesWindow();
 
+    // Render node graph if visible
+    if (g_showNodeGraph) {
+        g_nodeGraphWidget->render();
+        // Input is handled by the widget itself
+    }
+
     ImGui::Render();
 }
 
@@ -279,6 +310,13 @@ void shutdown() {
     assert(io.BackendPlatformUserData == nullptr &&
            "Host called app::shutdown() before ImGui_ImplGlfw_Shutdown() "
            "— see specs/render-backend 'Correct shutdown order'");
+
+    // Clean up node graph resources
+#if defined(IMGUI_SHELL_PLATFORM_DESKTOP)
+    g_nodeGraphWidget.reset();
+    g_vulkanDevice = VK_NULL_HANDLE;
+    g_vulkanDescriptorPool = VK_NULL_HANDLE;
+#endif
 
     ImGui::DestroyContext();
     g_state = State::ShutDown;
