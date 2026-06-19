@@ -243,7 +243,7 @@ void runApp() {
         throw std::runtime_error("GLFW reports no Vulkan support on this system.");
     }
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "imgui-shell", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1920, 1080, "imgui-shell", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         throw std::runtime_error("glfwCreateWindow failed");
