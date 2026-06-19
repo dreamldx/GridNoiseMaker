@@ -12,6 +12,17 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
+#if defined(_WIN32)
+    #include <process.h>
+    #define IMGUI_SHELL_GETPID _getpid
+#else
+    #include <unistd.h>
+    #define IMGUI_SHELL_GETPID getpid
+#endif
 
 #if defined(IMGUI_SHELL_PLATFORM_DESKTOP)
     #include <vulkan/vulkan.h>
@@ -24,6 +35,8 @@
     #define IMGUI_SHELL_FONT_BACKEND "unknown"
 #endif
 
+
+
 namespace app {
 
 namespace {
@@ -35,7 +48,7 @@ bool g_showPreferencesWindow = false;
 bool g_firstFrame = true;
 
 // ---- Theme-editor selection state ----
-enum class SelectionKind { None, Color, ScalarMetric, Vec2Metric, FontFile, FontSize };
+enum class SelectionKind { None, Color, ScalarMetric, Vec2Metric, FontFile, FontSize, PopupMenuMargin };
 SelectionKind g_selKind  = SelectionKind::None;
 int           g_selIndex = -1;
 
@@ -43,6 +56,8 @@ int           g_selIndex = -1;
 bool        g_vulkanQueried     = false;
 std::string g_vulkanApiVersion  = "(unknown)";
 std::string g_gpuName           = "(unknown)";
+
+
 
 // ---- Metric tables — mirror ThemeStorage.cpp's set ----
 struct ScalarMetric {
@@ -206,6 +221,10 @@ void renderThemeLeftPane() {
         std::snprintf(val, sizeof(val), "%.1f, %.1f", v.x, v.y);
         rightAlignedText("%s", val);
     }
+    
+    // Custom theme metric: popup menu margin (not in ImGuiStyle)
+    selectableItem(SelectionKind::PopupMenuMargin, 0, "PopupMenuMargin");
+    rightAlignedText("%.1f px", app::themePopupMenuMargin());
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -340,6 +359,22 @@ void renderThemeRightPane() {
             }
             break;
         }
+
+        case SelectionKind::PopupMenuMargin: {
+            ImGui::Text("PopupMenuMargin");
+            ImGui::Separator();
+            ImGui::TextWrapped("Padding inside popup menus (0-20 pixels)");
+            ImGui::Spacing();
+            
+            float margin = app::themePopupMenuMargin();
+            if (ImGui::DragFloat("##popupMenuMargin", &margin, 0.5f, 0.0f, 20.0f, "%.1f px")) {
+                app::setThemePopupMenuMargin(margin);
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                persistTheme();
+            }
+            break;
+        }
     }
 }
 
@@ -429,7 +464,7 @@ void renderPreferencesWindow() {
     if (!g_showPreferencesWindow) return;
 
     ImGui::SetNextWindowSize(ImVec2(640, 460), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Preferences", &g_showPreferencesWindow)) {
+    if (ImGui::Begin("Preferences", &g_showPreferencesWindow, ImGuiWindowFlags_NoDocking)) {
         if (ImGui::BeginTabBar("PreferencesTabs")) {
             if (ImGui::BeginTabItem("General")) {
                 renderGeneralTab();
@@ -454,6 +489,84 @@ void renderPreferencesWindow() {
         g_firstFrame = false;
     }
     ImGui::End();
+}
+
+// ---- Application preferences I/O ----
+
+namespace {
+
+std::string preferencesPath() {
+    std::filesystem::path p = app::themeConfigPath();
+    p = p.parent_path() / "preferences.json";
+    return p.string();
+}
+
+} // namespace
+
+float getContextMenuMargin() {
+    return app::themePopupMenuMargin();
+}
+
+void setContextMenuMargin(float margin) {
+    app::setThemePopupMenuMargin(margin);
+    
+    // Save to disk
+    std::string path = preferencesPath();
+    nlohmann::json root = {
+        {"_schema_version", 1},
+        {"context_menu_margin", margin}
+    };
+    
+    // Use atomic write similar to theme storage
+    std::filesystem::path target(path);
+    std::filesystem::path tempPath = target.string() + ".tmp." + std::to_string(IMGUI_SHELL_GETPID());
+    
+    try {
+        if (target.has_parent_path()) {
+            std::filesystem::create_directories(target.parent_path());
+        }
+        {
+            std::ofstream out(tempPath);
+            if (!out) {
+                std::fprintf(stderr, "[imgui-shell] could not open temp file '%s' for writing\n", tempPath.string().c_str());
+                return;
+            }
+            out << root.dump(2);
+        }
+        std::filesystem::rename(tempPath, target);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "[imgui-shell] failed to write preferences: %s\n", e.what());
+    }
+}
+
+void loadPreferences() {
+    std::string path = preferencesPath();
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec)) {
+        return; // No preferences file yet
+    }
+    
+    std::ifstream in(path);
+    if (!in) {
+        std::fprintf(stderr, "[imgui-shell] could not open preferences file '%s'\n", path.c_str());
+        return;
+    }
+    
+    try {
+        nlohmann::json root = nlohmann::json::parse(in);
+        
+        // Check schema version
+        if (root.contains("_schema_version") && root["_schema_version"].is_number()) {
+            int schema = root["_schema_version"];
+            if (schema == 1) {
+                
+            }
+        }
+    } catch (const nlohmann::json::exception& e) {
+        std::fprintf(stderr, "[imgui-shell] invalid JSON in preferences file '%s': %s\n", path.c_str(), e.what());
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "[imgui-shell] error reading preferences file '%s': %s\n", path.c_str(), e.what());
+    }
 }
 
 } // namespace app

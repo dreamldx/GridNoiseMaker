@@ -18,9 +18,12 @@ inline constexpr float       kDefaultThemeFontSizePx = 14.0f;
 // covered by the `colors` section of theme.json per the theme-persistence spec,
 // so runtime overrides happen through that channel rather than a separate setter.
 inline constexpr ImVec4 kThemeTextColor = ImVec4(219.0f / 255.0f,
-                                                 222.0f / 255.0f,
-                                                 227.0f / 255.0f,
-                                                 1.0f);
+                                                  222.0f / 255.0f,
+                                                  227.0f / 255.0f,
+                                                  1.0f);
+
+// Popup menu margin default
+inline constexpr float kDefaultThemePopupMenuMargin = 8.0f;
 
 // Runtime accessors — return the CURRENT typography values. Initialized to the
 // constexpr defaults; mutated by ThemeStorage::readThemeFromConfig when a
@@ -28,8 +31,10 @@ inline constexpr ImVec4 kThemeTextColor = ImVec4(219.0f / 255.0f,
 // the setters to revert to the constexpr defaults.
 const std::string& themeFontFile();
 float              themeFontSizePx();
+float              themePopupMenuMargin();
 void               setThemeFontFile(std::string path);
 void               setThemeFontSizePx(float px);
+void               setThemePopupMenuMargin(float margin);
 
 // ---- Style ----
 //

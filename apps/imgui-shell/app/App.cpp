@@ -93,8 +93,23 @@ VkDescriptorPool g_vulkanDescriptorPool = VK_NULL_HANDLE;
       const std::string fontPath = isAbsolute
           ? themeFontPath
           : resolveAssetPath(themeFontPath.c_str());
-      
-      // Always use default font for now to avoid font loading errors
+
+      // Load the configured TTF at the configured pixel size. Both feed the
+      // atlas here, so this is what makes a font/size change in Preferences
+      // actually show after rebuildFontAtlas().
+      if (!fontPath.empty() && std::filesystem::exists(fontPath)) {
+          ImFont* font = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), app::themeFontSizePx(), &cfg);
+          if (font != nullptr) {
+              g_fontFallback = false;
+              return;
+          }
+          std::fprintf(stderr, "[font] failed to rasterize '%s'; using default font\n", fontPath.c_str());
+      } else {
+          std::fprintf(stderr, "[font] file not found '%s'; using default font\n", fontPath.c_str());
+      }
+
+      // Fallback: ImGui's built-in ProggyClean (fixed 13px bitmap, so font-size
+      // changes won't show while this path is taken).
       io.Fonts->AddFontDefault();
       g_fontFallback = true;
   }
@@ -162,6 +177,9 @@ void init(RenderContext& ctx) {
     app::migrateLegacyThemeFile();
     app::applySelectedThemeToStyle(ImGui::GetStyle());
 
+    // Load application preferences
+    app::loadPreferences();
+
     // Multi-viewport — see specs/render-backend "Multi-viewport support on desktop".
     // Desktop-only: iOS is single-window. Enables ImGui to spawn real OS-level
     // secondary windows when the user drags a sub-window outside the main host.
@@ -177,12 +195,12 @@ void init(RenderContext& ctx) {
 void frame(RenderContext& /*ctx*/) {
     detail::ensureInitialized();
 
-      // Drain any pending font-atlas rebuild BEFORE NewFrame locks the atlas.
-      // See rebuildFontAtlas() for why this is deferred.
-      if (g_fontRebuildPending && g_rebuildFontAtlasCb) {
-          g_rebuildFontAtlasCb();
-          g_fontRebuildPending = false;
-      }
+// Drain any pending font-atlas rebuild BEFORE NewFrame locks the atlas.
+    // See rebuildFontAtlas() for why this is deferred.
+    if (g_fontRebuildPending && g_rebuildFontAtlasCb) {
+        g_rebuildFontAtlasCb();
+        g_fontRebuildPending = false;
+    }
 
     ImGui::NewFrame();
 

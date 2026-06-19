@@ -217,10 +217,34 @@ void parseThemeBlocks(const nlohmann::json& j, ImGuiStyle& style, const char* so
                     break;
                 }
             }
-            if (!matched) {
-                std::fprintf(stderr, "[imgui-shell] %s: unknown metric key '%s'; ignoring\n",
-                             source, key.c_str());
-            }
+                if (!matched) {
+                    // Handle custom metrics (not in ImGuiStyle)
+                    if (key == "popup_menu_margin" || key == "context_menu_margin") {
+                        matched = true;
+                        if (!value.is_number()) {
+                            std::fprintf(stderr, "[imgui-shell] %s: metric '%s' must be a number; ignoring\n",
+                                         source, key.c_str());
+                        } else {
+                            float margin = value.get<float>();
+                            float clamped = std::clamp(margin, 0.0f, 20.0f);
+                            if (clamped != margin) {
+                            std::fprintf(stderr,
+                                "[imgui-shell] %s: metric '%s' %g out of range [0, 20]; clamping to %g\n",
+                                source, key.c_str(), static_cast<double>(margin), static_cast<double>(clamped));
+                            }
+                            setThemePopupMenuMargin(clamped);
+                            // Warn about deprecated name
+                            if (key == "context_menu_margin") {
+                                std::fprintf(stderr,
+                                    "[imgui-shell] %s: deprecated metric name '%s' -> use 'popup_menu_margin'\n",
+                                    source, key.c_str());
+                            }
+                        }
+                    } else {
+                        std::fprintf(stderr, "[imgui-shell] %s: unknown metric key '%s'; ignoring\n",
+                                     source, key.c_str());
+                    }
+                }
         }
     }
 }
@@ -241,6 +265,9 @@ nlohmann::json serializeThemeBlocks(const ImGuiStyle& style) {
         const ImVec2& v = style.*m.ptr;
         metrics[m.name] = nlohmann::json::array({ v.x, v.y });
     }
+    
+    // Add custom metrics (not in ImGuiStyle)
+    metrics["popup_menu_margin"] = themePopupMenuMargin();
 
     nlohmann::json typography = nlohmann::json::object();
     typography["font_file"]    = themeFontFile();

@@ -1,4 +1,5 @@
 #include "NodeGraphWidget.h"
+#include "Theme.h"
 #include <imgui_internal.h>
 
 namespace nodegraph {
@@ -57,6 +58,29 @@ void NodeGraphWidget::render() {
         }
         ImGui::SameLine();
         ImGui::Text("Pan: Middle Mouse | Zoom: Ctrl+Mouse Wheel");
+
+        // Context menu with configurable margin and rectangular style
+        // Apply margin BEFORE BeginPopup so it affects the popup window creation
+        float margin = app::themePopupMenuMargin();
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(margin, margin));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        
+        if (ImGui::BeginPopupContextWindow("NodeGraphContextMenu", ImGuiPopupFlags_MouseButtonRight)) {
+            if (ImGui::MenuItem("Reset View")) {
+                m_gridRenderer->reset();
+            }
+            ImGui::Separator();
+            ImGui::MenuItem("Menu Item 1", nullptr, false, false);
+            ImGui::MenuItem("Menu Item 2", nullptr, false, false);
+            ImGui::MenuItem("Menu Item 3", nullptr, false, false);
+            ImGui::Separator();
+            ImGui::MenuItem("Menu Item 4", nullptr, false, false);
+            ImGui::MenuItem("Menu Item 5", nullptr, false, false);
+            
+            ImGui::EndPopup();
+        }
+        
+        ImGui::PopStyleVar(2); // Restore window padding and rounding
     }
     ImGui::End();
     ImGui::PopStyleVar();
@@ -83,6 +107,11 @@ void NodeGraphWidget::handleInput() {
     // already scales it by ZOOM_SPEED, so pre-multiplying here would double it.
     if (io.KeyCtrl && ImGui::IsWindowHovered() && io.MouseWheel != 0.0f) {
         m_gridRenderer->zoom(io.MouseWheel, io.MousePos);
+    }
+    
+    // Context menu trigger on right-click
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
+        ImGui::OpenPopup("NodeGraphContextMenu");
     }
     
     // Update node dragging

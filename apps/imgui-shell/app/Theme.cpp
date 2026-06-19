@@ -1,5 +1,6 @@
 #include "Theme.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace app {
@@ -11,6 +12,7 @@ namespace {
 // theme.json `typography` override is parsed).
 std::string g_themeFontFile   = kDefaultThemeFontFile;
 float       g_themeFontSizePx = kDefaultThemeFontSizePx;
+float       g_themePopupMenuMargin = kDefaultThemePopupMenuMargin;
 
 } // anonymous namespace
 
@@ -21,6 +23,10 @@ const std::string& themeFontFile() {
 float themeFontSizePx() {
     return g_themeFontSizePx;
 }
+float themePopupMenuMargin()
+{
+    return g_themePopupMenuMargin;
+}
 
 void setThemeFontFile(std::string path) {
     g_themeFontFile = path.empty() ? std::string(kDefaultThemeFontFile) : std::move(path);
@@ -28,6 +34,11 @@ void setThemeFontFile(std::string path) {
 
 void setThemeFontSizePx(float px) {
     g_themeFontSizePx = std::isnan(px) ? kDefaultThemeFontSizePx : px;
+}
+
+void setThemePopupMenuMargin(float margin)
+{
+    g_themePopupMenuMargin = std::clamp(margin, 0.0f, 20.0f);
 }
 
 namespace {

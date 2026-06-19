@@ -10,4 +10,9 @@ namespace app {
 void openPreferencesWindow();
 void renderPreferencesWindow();
 
+// Application preferences access
+float getContextMenuMargin();
+void setContextMenuMargin(float margin);
+void loadPreferences();
+
 } // namespace app
