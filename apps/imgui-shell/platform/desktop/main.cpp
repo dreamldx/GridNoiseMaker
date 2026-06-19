@@ -11,6 +11,10 @@
 #include "RenderContext.h"
 
 #include <GLFW/glfw3.h>
+#if defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#endif
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
@@ -18,6 +22,11 @@
 #include <array>
 #include <cstdio>
 #include <stdexcept>
+#include <vector>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -251,6 +260,24 @@ void runApp() {
         glfwTerminate();
         throw std::runtime_error("glfwCreateWindow failed");
     }
+
+    // Set window icon (Windows-specific using embedded icon resource)
+#if defined(_WIN32)
+    {
+        HWND hwnd = glfwGetWin32Window(window);
+        if (hwnd) {
+            // IDI_APP_ICON is defined in resources.rc as 1
+            HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(1));
+            if (hIcon) {
+                SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+                SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+                std::fprintf(stderr, "[icon] set Windows icon from embedded resource\n");
+            } else {
+                std::fprintf(stderr, "[icon] failed to load Windows icon resource\n");
+            }
+        }
+    }
+#endif
 
     // Center the window on the primary monitor
     GLFWmonitor* primary = glfwGetPrimaryMonitor();
