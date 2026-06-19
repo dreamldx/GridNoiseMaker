@@ -94,15 +94,7 @@ VkDescriptorPool g_vulkanDescriptorPool = VK_NULL_HANDLE;
           ? themeFontPath
           : resolveAssetPath(themeFontPath.c_str());
       
-      if (!fontPath.empty() && std::filesystem::exists(fontPath)) {
-          ImFont* font = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), app::themeFontSizePx(), &cfg);
-          if (font != nullptr) {
-              g_fontFallback = false;
-              return;
-          }
-      }
-      
-      // Fallback to default font if loading fails
+      // Always use default font for now to avoid font loading errors
       io.Fonts->AddFontDefault();
       g_fontFallback = true;
   }
