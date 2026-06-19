@@ -99,29 +99,36 @@ void NodeGraphWidget::drawNodes(ImDrawList* drawList) {
 void NodeGraphWidget::updateNodeDragging(const ImVec2& mousePos, bool mouseDown) {
     ImGuiIO& io = ImGui::GetIO();
     
-    if (mouseDown) {
-        bool hitNode = false;
-        for (auto& node : m_nodes) {
-            ImVec2 screenPos = m_gridRenderer->getView().worldToScreen(node.position);
-            ImVec2 screenSize = ImVec2(node.size.x * m_gridRenderer->getView().getZoom(), node.size.y * m_gridRenderer->getView().getZoom());
-            
-            if (mousePos.x >= screenPos.x && mousePos.x <= screenPos.x + screenSize.x &&
-                mousePos.y >= screenPos.y && mousePos.y <= screenPos.y + screenSize.y) {
-                if (!node.dragging) {
-                    node.dragging = true;
-                }
-                hitNode = true;
-            }
-        }
-        
-        // If clicked on empty space, stop all dragging
-        if (!hitNode) {
-            for (auto& node : m_nodes) {
-                node.dragging = false;
-            }
-        }
-    } else {
+    if (!mouseDown) {
         // Mouse released, stop all dragging
+        for (auto& node : m_nodes) {
+            node.dragging = false;
+        }
+        return;
+    }
+    
+    // Mouse is pressed, check for node hits
+    bool hitNode = false;
+    for (auto& node : m_nodes) {
+        ImVec2 screenPos = m_gridRenderer->getView().worldToScreen(node.position);
+        ImVec2 screenSize = ImVec2(node.size.x * m_gridRenderer->getView().getZoom(), node.size.y * m_gridRenderer->getView().getZoom());
+        
+        if (mousePos.x >= screenPos.x && mousePos.x <= screenPos.x + screenSize.x &&
+            mousePos.y >= screenPos.y && mousePos.y <= screenPos.y + screenSize.y) {
+            // Only allow one node to be dragging at a time
+            if (!node.dragging) {
+                // Clear dragging from all other nodes
+                for (auto& otherNode : m_nodes) {
+                    otherNode.dragging = false;
+                }
+                node.dragging = true;
+            }
+            hitNode = true;
+        }
+    }
+    
+    // If clicked on empty space, stop all dragging
+    if (!hitNode) {
         for (auto& node : m_nodes) {
             node.dragging = false;
         }

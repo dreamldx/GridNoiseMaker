@@ -36,12 +36,9 @@ ImVec2 ViewTransform::screenToWorld(const ImVec2& screenPos) const {
 
 // Pan the view
 void ViewTransform::pan(const ImVec2& deltaScreen) {
-    // Convert screen delta to world delta
-    ImVec2 worldDelta = screenToWorld(deltaScreen);
-    ImVec2 origin = screenToWorld(ImVec2(0.0f, 0.0f));
-    
-    m_viewOffset.x -= (worldDelta.x - origin.x);
-    m_viewOffset.y -= (worldDelta.y - origin.y);
+    // Simple formula: delta in screen space divided by zoom
+    m_viewOffset.x -= deltaScreen.x / m_zoom;
+    m_viewOffset.y -= deltaScreen.y / m_zoom;
     m_transformDirty = true;
 }
 
@@ -74,7 +71,7 @@ void ViewTransform::zoom(float delta, const ImVec2& centerScreen) {
         m_viewOffset.x -= (worldDelta.x - origin.x);
         m_viewOffset.y -= (worldDelta.y - origin.y);
         
-        m_transformDirty = true;
+        // Note: m_transformDirty is already true from line 61
     }
 }
 

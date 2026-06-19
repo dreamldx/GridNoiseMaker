@@ -71,11 +71,14 @@ void SimpleGridRenderer::drawGridLines(ImDrawList* drawList, const ImVec2& canva
     float zoomLevel = m_view.getZoom();
     float gridSpacing = m_gridSize;
     
-    // Use smooth logarithmic scaling instead of hard thresholds to avoid visual popping
+    // Smooth logarithmic scaling: grid spacing = base * 2^(log2(zoomThreshold/zoomLevel))
+    // This creates continuous scaling without visual popping
     if (zoomLevel < ZOOM_THRESHOLD_VERY_FAR) {
-        gridSpacing = m_gridSize * GRID_MULTIPLIER_VERY_FAR;
+        float scaleFactor = std::pow(2.0f, std::log2(ZOOM_THRESHOLD_VERY_FAR / zoomLevel));
+        gridSpacing = m_gridSize * scaleFactor;
     } else if (zoomLevel < ZOOM_THRESHOLD_FAR) {
-        gridSpacing = m_gridSize * GRID_MULTIPLIER_FAR;
+        float scaleFactor = std::pow(2.0f, std::log2(ZOOM_THRESHOLD_FAR / zoomLevel));
+        gridSpacing = m_gridSize * scaleFactor;
     }
     // For zoomLevel >= ZOOM_THRESHOLD_FAR, use base grid spacing
     

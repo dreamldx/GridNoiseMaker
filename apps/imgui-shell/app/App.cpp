@@ -148,7 +148,7 @@ void init(RenderContext& ctx) {
     g_vulkanDevice = ctx.device;
     g_vulkanDescriptorPool = ctx.descriptorPool;
     
-    // Create node graph widget (no Vulkan dependencies)
+    // Create node graph widget for all platforms
     g_nodeGraphWidget = std::make_unique<nodegraph::NodeGraphWidget>();
 #else
     (void)ctx;
@@ -312,11 +312,7 @@ void shutdown() {
            "— see specs/render-backend 'Correct shutdown order'");
 
     // Clean up node graph resources
-#if defined(IMGUI_SHELL_PLATFORM_DESKTOP)
     g_nodeGraphWidget.reset();
-    g_vulkanDevice = VK_NULL_HANDLE;
-    g_vulkanDescriptorPool = VK_NULL_HANDLE;
-#endif
 
     ImGui::DestroyContext();
     g_state = State::ShutDown;
