@@ -203,12 +203,7 @@ void frame(RenderContext& /*ctx*/) {
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("View")) {
-            if (ImGui::MenuItem("Node Graph", nullptr, &g_showNodeGraph)) {
-                // Toggle handled by ImGui
-            }
-            ImGui::EndMenu();
-        }
+        
 
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("ImGui Demo...")) {
