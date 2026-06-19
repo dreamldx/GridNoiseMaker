@@ -22,7 +22,9 @@ ImVec2 ViewTransform::worldToScreen(const ImVec2& worldPos) const {
         const_cast<ViewTransform*>(this)->updateTransforms();
     }
     
-    return m_worldToScreen.transform(worldPos);
+    // Apply transform and add viewport position offset
+    ImVec2 screenPos = m_worldToScreen.transform(worldPos);
+    return ImVec2(screenPos.x + m_viewportPos.x, screenPos.y + m_viewportPos.y);
 }
 
 // Convert screen coordinates to world coordinates
@@ -31,7 +33,9 @@ ImVec2 ViewTransform::screenToWorld(const ImVec2& screenPos) const {
         const_cast<ViewTransform*>(this)->updateTransforms();
     }
     
-    return m_screenToWorld.transform(screenPos);
+    // Subtract viewport position before applying inverse transform
+    ImVec2 viewportRelativePos = ImVec2(screenPos.x - m_viewportPos.x, screenPos.y - m_viewportPos.y);
+    return m_screenToWorld.transform(viewportRelativePos);
 }
 
 // Pan the view
@@ -120,8 +124,9 @@ void ViewTransform::setZoom(float zoom) {
     m_transformDirty = true;
 }
 
-// Set viewport size
-void ViewTransform::setViewportSize(const ImVec2& size) {
+// Set viewport position and size
+void ViewTransform::setViewport(const ImVec2& pos, const ImVec2& size) {
+    m_viewportPos = pos;
     m_viewportSize = size;
     m_viewportCenter = ImVec2(size.x * 0.5f, size.y * 0.5f);
     m_transformDirty = true;

@@ -243,11 +243,27 @@ void runApp() {
         throw std::runtime_error("GLFW reports no Vulkan support on this system.");
     }
 
-    GLFWwindow* window = glfwCreateWindow(1920, 1080, "imgui-shell", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1902, 1080, "imgui-shell", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         throw std::runtime_error("glfwCreateWindow failed");
     }
+    
+    // Center the window on the primary monitor
+    GLFWmonitor* primary = glfwGetPrimaryMonitor();
+    if (primary) {
+        const GLFWvidmode* mode = glfwGetVideoMode(primary);
+        int xpos = (mode->width - 1902) / 2;
+        int ypos = (mode->height - 1080) / 2;
+        glfwSetWindowPos(window, xpos, ypos);
+    }
+    
+    // Ensure window is visible and restored (not minimized)
+    glfwShowWindow(window);
+    glfwRestoreWindow(window);
+    
+    // Focus the window
+    glfwFocusWindow(window);
 
     desktop::Instance       instance  = desktop::createInstance();
     desktop::Device         device    = desktop::createDevice(instance.handle, window);

@@ -15,6 +15,9 @@ constexpr float MIN_CANVAS_SIZE = 1.0f;
 SimpleGridRenderer::SimpleGridRenderer() : m_view() {}
 
 void SimpleGridRenderer::draw(ImDrawList* drawList, const ImVec2& canvasPos, const ImVec2& canvasSize) {
+    // Update viewport position and size
+    m_view.setViewport(canvasPos, canvasSize);
+    
     drawGridLines(drawList, canvasPos, canvasSize);
 }
 

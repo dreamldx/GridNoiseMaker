@@ -85,7 +85,7 @@ public:
     // Setters
     void setViewOffset(const ImVec2& offset);
     void setZoom(float zoom);
-    void setViewportSize(const ImVec2& size);
+    void setViewport(const ImVec2& pos, const ImVec2& size);
     
     // Bounds checking
     bool isVisible(const ImVec2& worldPos, float radius = 0.0f) const;
@@ -105,8 +105,9 @@ private:
     float m_zoom = 1.0f;                    // Scale factor
     
     // Viewport
-    ImVec2 m_viewportSize = {0.0f, 0.0f};
-    ImVec2 m_viewportCenter = {0.0f, 0.0f};
+    ImVec2 m_viewportPos = {0.0f, 0.0f};    // Screen position
+    ImVec2 m_viewportSize = {0.0f, 0.0f};   // Screen size
+    ImVec2 m_viewportCenter = {0.0f, 0.0f}; // Screen center (relative to viewportPos)
     
     // Precomputed transformation matrices
     TransformMatrix m_worldToScreen;

@@ -51,7 +51,7 @@ RebuildFontAtlasFn g_rebuildFontAtlasCb = nullptr;
 bool g_fontRebuildPending = false;
 
 // Node graph widget state
-bool g_showNodeGraph = false;
+bool g_showNodeGraph = true;
 std::unique_ptr<nodegraph::NodeGraphWidget> g_nodeGraphWidget;
 
 #if defined(IMGUI_SHELL_PLATFORM_DESKTOP)

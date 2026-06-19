@@ -17,7 +17,24 @@ NodeGraphWidget::~NodeGraphWidget() = default;
 void NodeGraphWidget::render() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     
-    if (ImGui::Begin("Node Graph", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+    // Get the main viewport
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    
+    // Set window position and size to fill the viewport work area (below menu bar)
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    
+    // Window flags - no title bar, no resize, no move
+    ImGuiWindowFlags window_flags = 
+        ImGuiWindowFlags_NoTitleBar | 
+        ImGuiWindowFlags_NoResize | 
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoScrollbar | 
+        ImGuiWindowFlags_NoScrollWithMouse |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoBringToFrontOnFocus;
+    
+    if (ImGui::Begin("Node Graph", nullptr, window_flags)) {
         m_canvasPos = ImGui::GetCursorScreenPos();
         m_canvasSize = ImGui::GetContentRegionAvail();
         
