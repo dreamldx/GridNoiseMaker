@@ -1,17 +1,34 @@
 # Desktop host — see specs/render-backend/spec.md (desktop portion).
 
-add_executable(imgui_shell_desktop
-    main.cpp
-    vk_check.h
-    vk_instance.cpp
-    vk_instance.h
-    vk_device.cpp
-    vk_device.h
-    vk_swapchain.cpp
-    vk_swapchain.h
-    vk_frame.cpp
-    vk_frame.h
-)
+# Add icon to executable sources
+if(WIN32)
+    add_executable(imgui_shell_desktop
+        main.cpp
+        vk_check.h
+        vk_instance.cpp
+        vk_instance.h
+        vk_device.cpp
+        vk_device.h
+        vk_swapchain.cpp
+        vk_swapchain.h
+        vk_frame.cpp
+        vk_frame.h
+        resources.rc
+    )
+else()
+    add_executable(imgui_shell_desktop
+        main.cpp
+        vk_check.h
+        vk_instance.cpp
+        vk_instance.h
+        vk_device.cpp
+        vk_device.h
+        vk_swapchain.cpp
+        vk_swapchain.h
+        vk_frame.cpp
+        vk_frame.h
+    )
+endif()
 
 target_link_libraries(imgui_shell_desktop PRIVATE
     imgui_shell_app
@@ -33,3 +50,5 @@ add_custom_command(TARGET imgui_shell_desktop POST_BUILD
     COMMENT "Copying assets/ next to imgui_shell_desktop binary"
     VERBATIM
 )
+
+
