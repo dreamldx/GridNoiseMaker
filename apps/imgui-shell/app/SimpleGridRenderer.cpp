@@ -6,8 +6,6 @@ namespace nodegraph {
 // Named constants for zoom thresholds and multipliers
 constexpr float ZOOM_THRESHOLD_VERY_FAR = 0.3f;
 constexpr float ZOOM_THRESHOLD_FAR = 0.7f;
-constexpr float GRID_MULTIPLIER_VERY_FAR = 4.0f;
-constexpr float GRID_MULTIPLIER_FAR = 2.0f;
 constexpr float MAJOR_LINE_INTERVAL = 5.0f;
 constexpr float MIN_GRID_SPACING = 1.0f;
 constexpr float MIN_CANVAS_SIZE = 1.0f;
@@ -74,14 +72,14 @@ void SimpleGridRenderer::drawGridLines(ImDrawList* drawList, const ImVec2& canva
     float zoomLevel = m_view.getZoom();
     float gridSpacing = m_gridSize;
     
-    // Smooth logarithmic scaling: grid spacing = base * 2^(log2(zoomThreshold/zoomLevel))
-    // This creates continuous scaling without visual popping
+    // Scale grid spacing inversely with zoom once zoomed out past a threshold,
+    // so on-screen line density stays roughly constant. (pow(2, log2(t/z)) is
+    // just t/z.) Note: spacing is discontinuous at ZOOM_THRESHOLD_VERY_FAR,
+    // which causes a visible pop there.
     if (zoomLevel < ZOOM_THRESHOLD_VERY_FAR) {
-        float scaleFactor = std::pow(2.0f, std::log2(ZOOM_THRESHOLD_VERY_FAR / zoomLevel));
-        gridSpacing = m_gridSize * scaleFactor;
+        gridSpacing = m_gridSize * (ZOOM_THRESHOLD_VERY_FAR / zoomLevel);
     } else if (zoomLevel < ZOOM_THRESHOLD_FAR) {
-        float scaleFactor = std::pow(2.0f, std::log2(ZOOM_THRESHOLD_FAR / zoomLevel));
-        gridSpacing = m_gridSize * scaleFactor;
+        gridSpacing = m_gridSize * (ZOOM_THRESHOLD_FAR / zoomLevel);
     }
     // For zoomLevel >= ZOOM_THRESHOLD_FAR, use base grid spacing
     

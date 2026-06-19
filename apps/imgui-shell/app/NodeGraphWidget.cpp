@@ -79,9 +79,10 @@ void NodeGraphWidget::handleInput() {
         m_isDraggingView = false;
     }
     
-    // Ctrl+Mouse wheel for zooming
+    // Ctrl+Mouse wheel for zooming. Pass the raw wheel delta; ViewTransform::zoom
+    // already scales it by ZOOM_SPEED, so pre-multiplying here would double it.
     if (io.KeyCtrl && ImGui::IsWindowHovered() && io.MouseWheel != 0.0f) {
-        m_gridRenderer->zoom(io.MouseWheel * 0.1f, io.MousePos);
+        m_gridRenderer->zoom(io.MouseWheel, io.MousePos);
     }
     
     // Update node dragging
@@ -115,7 +116,9 @@ void NodeGraphWidget::drawNodes(ImDrawList* drawList) {
 
 void NodeGraphWidget::updateNodeDragging(const ImVec2& mousePos, bool mouseDown) {
     ImGuiIO& io = ImGui::GetIO();
-    
+    const ViewTransform& view = m_gridRenderer->getView();
+    const float zoom = view.getZoom();
+
     if (!mouseDown) {
         // Mouse released, stop all dragging
         for (auto& node : m_nodes) {
@@ -123,41 +126,32 @@ void NodeGraphWidget::updateNodeDragging(const ImVec2& mousePos, bool mouseDown)
         }
         return;
     }
-    
-    // Mouse is pressed, check for node hits
-    bool hitNode = false;
-    for (auto& node : m_nodes) {
-        ImVec2 screenPos = m_gridRenderer->getView().worldToScreen(node.position);
-        ImVec2 screenSize = ImVec2(node.size.x * m_gridRenderer->getView().getZoom(), node.size.y * m_gridRenderer->getView().getZoom());
-        
-        if (mousePos.x >= screenPos.x && mousePos.x <= screenPos.x + screenSize.x &&
-            mousePos.y >= screenPos.y && mousePos.y <= screenPos.y + screenSize.y) {
-            // Only allow one node to be dragging at a time
-            if (!node.dragging) {
-                // Clear dragging from all other nodes
-                for (auto& otherNode : m_nodes) {
-                    otherNode.dragging = false;
-                }
-                node.dragging = true;
-            }
-            hitNode = true;
-        }
-    }
-    
-    // If clicked on empty space, stop all dragging
-    if (!hitNode) {
+
+    // Latch the node to drag on the initial press only. Re-running the hit test
+    // every frame would cancel the drag whenever a fast mouse motion outran the
+    // node and left its rect. Iterate back-to-front so the top-most (last drawn)
+    // node under the cursor wins, and pick exactly one.
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsWindowHovered()) {
         for (auto& node : m_nodes) {
             node.dragging = false;
         }
+        for (auto it = m_nodes.rbegin(); it != m_nodes.rend(); ++it) {
+            Node& node = *it;
+            ImVec2 screenPos = view.worldToScreen(node.position);
+            ImVec2 screenSize = ImVec2(node.size.x * zoom, node.size.y * zoom);
+            if (mousePos.x >= screenPos.x && mousePos.x <= screenPos.x + screenSize.x &&
+                mousePos.y >= screenPos.y && mousePos.y <= screenPos.y + screenSize.y) {
+                node.dragging = true;
+                break;
+            }
+        }
     }
-    
-    // Update positions of dragging nodes
+
+    // Move whichever node is latched, converting screen delta to world delta.
     for (auto& node : m_nodes) {
         if (node.dragging) {
-            // Calculate world delta from screen delta using current zoom
-            ImVec2 screenDelta = ImVec2(io.MouseDelta.x, io.MouseDelta.y);
-            node.position.x += screenDelta.x / m_gridRenderer->getView().getZoom();
-            node.position.y += screenDelta.y / m_gridRenderer->getView().getZoom();
+            node.position.x += io.MouseDelta.x / zoom;
+            node.position.y += io.MouseDelta.y / zoom;
         }
     }
 }

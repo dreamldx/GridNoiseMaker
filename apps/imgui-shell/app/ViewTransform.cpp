@@ -126,10 +126,17 @@ void ViewTransform::setZoom(float zoom) {
 
 // Set viewport position and size
 void ViewTransform::setViewport(const ImVec2& pos, const ImVec2& size) {
+    // Position is applied as a post-transform offset in worldToScreen/
+    // screenToWorld, so it never feeds the matrices and doesn't dirty them.
     m_viewportPos = pos;
-    m_viewportSize = size;
-    m_viewportCenter = ImVec2(size.x * 0.5f, size.y * 0.5f);
-    m_transformDirty = true;
+
+    // Only size affects the matrices (via the viewport center), so recompute
+    // them solely when it actually changes — this runs every frame.
+    if (size.x != m_viewportSize.x || size.y != m_viewportSize.y) {
+        m_viewportSize = size;
+        m_viewportCenter = ImVec2(size.x * 0.5f, size.y * 0.5f);
+        m_transformDirty = true;
+    }
 }
 
 // Check if world position is visible

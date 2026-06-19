@@ -203,8 +203,6 @@ void frame(RenderContext& /*ctx*/) {
             ImGui::EndMenu();
         }
 
-        
-
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("ImGui Demo...")) {
                 wantOpenImGuiDemo = true;

@@ -243,26 +243,26 @@ void runApp() {
         throw std::runtime_error("GLFW reports no Vulkan support on this system.");
     }
 
-    GLFWwindow* window = glfwCreateWindow(1902, 1080, "imgui-shell", nullptr, nullptr);
+    constexpr int kWindowWidth  = 1920;
+    constexpr int kWindowHeight = 1080;
+
+    GLFWwindow* window = glfwCreateWindow(kWindowWidth, kWindowHeight, "imgui-shell", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         throw std::runtime_error("glfwCreateWindow failed");
     }
-    
+
     // Center the window on the primary monitor
     GLFWmonitor* primary = glfwGetPrimaryMonitor();
     if (primary) {
         const GLFWvidmode* mode = glfwGetVideoMode(primary);
-        int xpos = (mode->width - 1902) / 2;
-        int ypos = (mode->height - 1080) / 2;
+        int xpos = (mode->width - kWindowWidth) / 2;
+        int ypos = (mode->height - kWindowHeight) / 2;
         glfwSetWindowPos(window, xpos, ypos);
     }
-    
-    // Ensure window is visible and restored (not minimized)
-    glfwShowWindow(window);
-    glfwRestoreWindow(window);
-    
-    // Focus the window
+
+    // The window is created visible (no GLFW_VISIBLE=false hint), so just
+    // bring it to the foreground.
     glfwFocusWindow(window);
 
     desktop::Instance       instance  = desktop::createInstance();
