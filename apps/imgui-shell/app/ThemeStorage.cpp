@@ -219,7 +219,7 @@ void parseThemeBlocks(const nlohmann::json& j, ImGuiStyle& style, const char* so
             }
                 if (!matched) {
                     // Handle custom metrics (not in ImGuiStyle)
-                    if (key == "popup_menu_margin" || key == "context_menu_margin") {
+                    if (key == "popup_menu_margin") {
                         matched = true;
                         if (!value.is_number()) {
                             std::fprintf(stderr, "[imgui-shell] %s: metric '%s' must be a number; ignoring\n",
@@ -233,12 +233,6 @@ void parseThemeBlocks(const nlohmann::json& j, ImGuiStyle& style, const char* so
                                 source, key.c_str(), static_cast<double>(margin), static_cast<double>(clamped));
                             }
                             setThemePopupMenuMargin(clamped);
-                            // Warn about deprecated name
-                            if (key == "context_menu_margin") {
-                                std::fprintf(stderr,
-                                    "[imgui-shell] %s: deprecated metric name '%s' -> use 'popup_menu_margin'\n",
-                                    source, key.c_str());
-                            }
                         }
                     } else {
                         std::fprintf(stderr, "[imgui-shell] %s: unknown metric key '%s'; ignoring\n",

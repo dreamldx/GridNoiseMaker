@@ -26,6 +26,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include "resource.h"
 #endif
 
 namespace {
@@ -261,20 +262,22 @@ void runApp() {
         throw std::runtime_error("glfwCreateWindow failed");
     }
 
-    // Set window icon (Windows-specific using embedded icon resource)
+// Set window icon
 #if defined(_WIN32)
+    // Windows: Load icon from embedded resource
     {
-        HWND hwnd = glfwGetWin32Window(window);
-        if (hwnd) {
-            // IDI_APP_ICON is defined in resources.rc as 1
-            HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(1));
-            if (hIcon) {
+        // Load icon from executable resources (IDI_APP_ICON is defined in resource.h as 101)
+        HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_APP_ICON));
+        if (hIcon) {
+            HWND hwnd = glfwGetWin32Window(window);
+            if (hwnd) {
                 SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
                 SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
-                std::fprintf(stderr, "[icon] set Windows icon from embedded resource\n");
-            } else {
-                std::fprintf(stderr, "[icon] failed to load Windows icon resource\n");
+                std::fprintf(stderr, "[icon] set embedded icon using Windows API\n");
             }
+            // Don't destroy the icon - Windows keeps it
+        } else {
+            std::fprintf(stderr, "[icon] failed to load embedded icon\n");
         }
     }
 #endif
