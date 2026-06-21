@@ -39,6 +39,20 @@ add_custom_command(TARGET imgui_shell_desktop POST_BUILD
     VERBATIM
 )
 
+# Copy executable and assets to root bin/ folder for easy access
+add_custom_command(TARGET imgui_shell_desktop POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        ${CMAKE_SOURCE_DIR}/../../../bin
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:imgui_shell_desktop>
+        ${CMAKE_SOURCE_DIR}/../../../bin/
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        ${CMAKE_SOURCE_DIR}/../../../bin/assets
+    COMMENT "Copying executable and assets to root bin/ folder"
+    VERBATIM
+)
+
 
 
 
