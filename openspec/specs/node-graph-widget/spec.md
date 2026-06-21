@@ -97,10 +97,34 @@ The context menu SHALL integrate seamlessly with the existing node graph widget 
 - **WHEN** the node graph widget processes input events
 - **THEN** context menu handling SHALL be added to the existing `NodeGraphWidget::handleInput()` method
 - **AND** SHALL check for right-click events within the same input processing loop
-- **AND** SHALL use `ImGui::BeginPopupContextWindow()` for menu creation
+.
+**AND** SHALL use `ImGui::BeginPopupContextWindow()` for menu creation
 
 #### Scenario: Existing functionality preserved
 - **WHEN** the context menu is implemented
 - **THEN** all existing functionality (pan, zoom, node dragging) SHALL remain unchanged
 - **AND** the "Reset View" button SHALL continue to function as before
-- **AND** keyboard shortcuts SHALL not be affected
+.
+**AND** keyboard shortcuts SHALL not be affected
+
+### Requirement: Node graph persistence operations
+The node graph widget SHALL support persistence operations for saving and loading node state, extending its functionality to include file-based storage while maintaining all existing visualization and interaction capabilities.
+
+#### Scenario: Node state includes persistence metadata
+- **WHEN** nodes are created or modified
+- **THEN** the node structure SHALL include fields for type information and properties
+- **AND** SHALL support serialization of all visual properties (position, size, color, borderColor, title)
+- **AND** SHALL support type-specific properties stored separately from visual properties
+
+#### Scenario: Type-based property system
+- **WHEN** the node graph widget is extended for persistence
+- **THEN** it SHALL support a node type registry with default properties per type
+- **AND** SHALL apply type-specific default visual properties (colors) to nodes
+- **AND** SHALL maintain common visual properties for all node types
+
+#### Scenario: JSON serialization integration
+- **WHEN** persistence is implemented
+- **THEN** the node graph widget SHALL integrate with JSON serialization using nlohmann/json
+- **AND** SHALL serialize vector data as arrays (`[x, y]` for positions/sizes)
+- **AND** SHALL serialize colors as RGBA arrays (`[r, g, b, a]`)
+- **AND** SHALL maintain backward compatibility with existing node rendering

@@ -1,19 +1,205 @@
 #include "NodeGraphWidget.h"
 #include "Theme.h"
 #include <imgui_internal.h>
+#include <fstream>
 
 namespace nodegraph {
+
+NodeType::NodeType(const std::string& name, ImU32 defaultColor, 
+                   const nlohmann::json& defaultProperties)
+    : name(name), defaultColor(defaultColor), defaultProperties(defaultProperties) {
+}
+
+NodeTypeRegistry::NodeTypeRegistry() {
+}
+
+NodeTypeRegistry& NodeTypeRegistry::instance() {
+    static NodeTypeRegistry registry;
+    return registry;
+}
+
+void NodeTypeRegistry::registerType(const NodeType& type) {
+    m_types[type.name] = type;
+}
+
+const NodeType* NodeTypeRegistry::getType(const std::string& name) const {
+    auto it = m_types.find(name);
+    if (it != m_types.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
+std::vector<std::string> NodeTypeRegistry::getTypeNames() const {
+    std::vector<std::string> names;
+    names.reserve(m_types.size());
+    for (const auto& pair : m_types) {
+        names.push_back(pair.first);
+    }
+    return names;
+}
+
+Node NodeTypeRegistry::createNode(const std::string& typeName, const ImVec2& position) {
+    const NodeType* type = getType(typeName);
+    if (!type) {
+        // Fallback to default type
+        Node node;
+        node.position = position;
+        node.type = "default";
+        node.properties = nlohmann::json::object();
+        return node;
+    }
+    
+    Node node;
+    node.position = position;
+    node.size = ImVec2(100, 60);
+    node.color = type->defaultColor;
+    node.borderColor = IM_COL32(100, 100, 100, 255);
+    node.title = type->name;
+    node.type = type->name;
+    node.properties = type->defaultProperties;
+    return node;
+}
 
 NodeGraphWidget::NodeGraphWidget() {
     m_gridRenderer = std::make_unique<SimpleGridRenderer>();
     
-    // Add some test nodes
-    m_nodes.push_back(Node{ImVec2(100, 100), ImVec2(120, 80), IM_COL32(60, 60, 90, 255), IM_COL32(120, 120, 180, 255), "Input"});
-    m_nodes.push_back(Node{ImVec2(300, 150), ImVec2(150, 100), IM_COL32(60, 90, 60, 255), IM_COL32(120, 180, 120, 255), "Process"});
-    m_nodes.push_back(Node{ImVec2(500, 100), ImVec2(120, 80), IM_COL32(90, 60, 60, 255), IM_COL32(180, 120, 120, 255), "Output"});
+    // Register default node types
+    NodeTypeRegistry& registry = NodeTypeRegistry::instance();
+    registry.registerType(NodeType("input", IM_COL32(60, 60, 90, 255), 
+        nlohmann::json::object({{"value", 0.0}, {"label", "Input"}})));
+    registry.registerType(NodeType("processor", IM_COL32(60, 90, 60, 255), 
+        nlohmann::json::object({{"operation", "add"}, {"inputs", 2}})));
+    registry.registerType(NodeType("output", IM_COL32(90, 60, 60, 255), 
+        nlohmann::json::object({{"value", 0.0}, {"label", "Output"}})));
+    
+    // Add some test nodes with type information
+    Node inputNode{ImVec2(100, 100), ImVec2(120, 80), IM_COL32(60, 60, 90, 255), IM_COL32(120, 120, 180, 255), "Input A"};
+    inputNode.type = "input";
+    inputNode.properties = nlohmann::json::object({{"value", 5.0}, {"label", "Input A"}});
+    m_nodes.push_back(inputNode);
+    
+    Node processNode{ImVec2(300, 150), ImVec2(150, 100), IM_COL32(60, 90, 60, 255), IM_COL32(120, 180, 120, 255), "Processor"};
+    processNode.type = "processor";
+    processNode.properties = nlohmann::json::object({{"operation", "multiply"}, {"inputs", 2}});
+    m_nodes.push_back(processNode);
+    
+    Node outputNode{ImVec2(500, 100), ImVec2(120, 80), IM_COL32(90, 60, 60, 255), IM_COL32(180, 120, 120, 255), "Output"};
+    outputNode.type = "output";
+    outputNode.properties = nlohmann::json::object({{"value", 0.0}, {"label", "Final Output"}});
+    m_nodes.push_back(outputNode);
 }
 
 NodeGraphWidget::~NodeGraphWidget() = default;
+
+nlohmann::json NodeGraphWidget::toJson() const {
+    nlohmann::json j;
+    j["version"] = 1;
+    
+    // Serialize nodes
+    nlohmann::json nodesArray = nlohmann::json::array();
+    for (const auto& node : m_nodes) {
+        nodesArray.push_back(node);
+    }
+    j["nodes"] = nodesArray;
+    
+    // Serialize node types from registry
+    nlohmann::json nodeTypesObj = nlohmann::json::object();
+    NodeTypeRegistry& registry = NodeTypeRegistry::instance();
+    auto typeNames = registry.getTypeNames();
+    for (const auto& typeName : typeNames) {
+        const NodeType* type = registry.getType(typeName);
+        if (type) {
+            nlohmann::json typeJson = nlohmann::json::object({
+                {"defaultColor", {
+                    (type->defaultColor >> IM_COL32_R_SHIFT) & 0xFF,
+                    (type->defaultColor >> IM_COL32_G_SHIFT) & 0xFF,
+                    (type->defaultColor >> IM_COL32_B_SHIFT) & 0xFF,
+                    (type->defaultColor >> IM_COL32_A_SHIFT) & 0xFF
+                }},
+                {"defaultProperties", type->defaultProperties}
+            });
+            nodeTypesObj[typeName] = typeJson;
+        }
+    }
+    j["nodeTypes"] = nodeTypesObj;
+    
+    return j;
+}
+
+bool NodeGraphWidget::fromJson(const nlohmann::json& j) {
+    try {
+        // Check version - support version 1 only for now
+        if (!j.contains("version")) {
+            return false;
+        }
+        int version = j["version"];
+        if (version != 1) {
+            // Future: add version migration logic here
+            return false;
+        }
+        
+        // Clear existing nodes
+        m_nodes.clear();
+        
+        // Deserialize nodes
+        if (j.contains("nodes") && j["nodes"].is_array()) {
+            for (const auto& nodeJson : j["nodes"]) {
+                Node node;
+                from_json(nodeJson, node);
+                m_nodes.push_back(node);
+            }
+        }
+        
+        // Deserialize node types (optional - types may already be registered)
+        if (j.contains("nodeTypes") && j["nodeTypes"].is_object()) {
+            NodeTypeRegistry& registry = NodeTypeRegistry::instance();
+            for (const auto& [typeName, typeJson] : j["nodeTypes"].items()) {
+                if (typeJson.contains("defaultColor") && typeJson["defaultColor"].is_array() && 
+                    typeJson["defaultColor"].size() >= 4) {
+                    auto colorArr = typeJson["defaultColor"];
+                    ImU32 defaultColor = IM_COL32(colorArr[0], colorArr[1], colorArr[2], colorArr[3]);
+                    nlohmann::json defaultProperties = typeJson.contains("defaultProperties") ? 
+                        typeJson["defaultProperties"] : nlohmann::json::object();
+                    registry.registerType(NodeType(typeName, defaultColor, defaultProperties));
+                }
+            }
+        }
+        
+        return true;
+    } catch (const std::exception& e) {
+        return false;
+    }
+}
+
+bool NodeGraphWidget::saveToFile(const std::string& filePath) const {
+    try {
+        nlohmann::json j = toJson();
+        std::ofstream file(filePath);
+        if (!file.is_open()) {
+            return false;
+        }
+        file << j.dump(4); // Pretty print with 4 spaces
+        file.close();
+        return true;
+    } catch (const std::exception& e) {
+        return false;
+    }
+}
+
+bool NodeGraphWidget::loadFromFile(const std::string& filePath) {
+    try {
+        std::ifstream file(filePath);
+        if (!file.is_open()) {
+            return false;
+        }
+        nlohmann::json j;
+        file >> j;
+        return fromJson(j);
+    } catch (const std::exception& e) {
+        return false;
+    }
+}
 
 void NodeGraphWidget::render() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));

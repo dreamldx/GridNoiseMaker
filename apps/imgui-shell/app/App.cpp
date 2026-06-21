@@ -54,6 +54,13 @@ bool g_fontRebuildPending = false;
 bool g_showNodeGraph = true;
 std::unique_ptr<nodegraph::NodeGraphWidget> g_nodeGraphWidget;
 
+// File dialog state for node graph persistence
+bool g_showSaveDialog = false;
+bool g_showLoadDialog = false;
+std::string g_fileDialogPath;
+bool g_fileDialogError = false;
+std::string g_fileDialogErrorMessage;
+
 #if defined(IMGUI_SHELL_PLATFORM_DESKTOP)
 // Vulkan resources for node graph texture cache
 VkDevice g_vulkanDevice = VK_NULL_HANDLE;
@@ -155,9 +162,15 @@ void init(RenderContext& ctx) {
     g_vulkanDevice = ctx.device;
     g_vulkanDescriptorPool = ctx.descriptorPool;
     
-    // Create node graph widget for all platforms
-    g_nodeGraphWidget = std::make_unique<nodegraph::NodeGraphWidget>();
-#else
+// Create node graph widget for all platforms
+      g_nodeGraphWidget = std::make_unique<nodegraph::NodeGraphWidget>();
+      
+      // Auto-load default node graph project
+      std::string defaultPath = resolveAssetPath("default_node_graph.json");
+      if (std::filesystem::exists(defaultPath)) {
+          g_nodeGraphWidget->loadFromFile(defaultPath);
+      }
+  #else
     (void)ctx;
 #endif
 
@@ -213,6 +226,13 @@ void frame(RenderContext& /*ctx*/) {
                 app::openPreferencesWindow();
             }
             if constexpr (kIsDesktop) {
+                ImGui::Separator();
+                if (ImGui::MenuItem("Save Node Graph...")) {
+                    g_showSaveDialog = true;
+                }
+                if (ImGui::MenuItem("Load Node Graph...")) {
+                    g_showLoadDialog = true;
+                }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Quit")) {
                     g_quitRequested = true;
@@ -287,13 +307,111 @@ void frame(RenderContext& /*ctx*/) {
         ImGui::EndPopup();
     }
 
-    app::renderPreferencesWindow();
+app::renderPreferencesWindow();
 
-    // Render node graph if visible
-    if (g_showNodeGraph) {
-        g_nodeGraphWidget->render();
-        // Input is handled by the widget itself
-    }
+      // File dialogs for node graph persistence
+      
+      // Save dialog
+      if (g_showSaveDialog) {
+          ImGui::OpenPopup("Save Node Graph");
+          g_fileDialogPath = "";
+          g_fileDialogError = false;
+          g_showSaveDialog = false;
+      }
+      
+      if (ImGui::BeginPopupModal("Save Node Graph", nullptr, 
+                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+          
+          ImGui::Text("Save node graph to JSON file:");
+          ImGui::Spacing();
+          
+          // File path input
+          static char filePathBuffer[256] = "";
+          ImGui::InputText("File path", filePathBuffer, sizeof(filePathBuffer));
+          
+          ImGui::Spacing();
+          
+          if (g_fileDialogError) {
+              ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Error: %s", g_fileDialogErrorMessage.c_str());
+              ImGui::Spacing();
+          }
+          
+          if (ImGui::Button("Save", ImVec2(120, 0))) {
+              std::string filePath = filePathBuffer;
+              if (filePath.empty()) {
+                  g_fileDialogError = true;
+                  g_fileDialogErrorMessage = "File path cannot be empty";
+              } else if (g_nodeGraphWidget->saveToFile(filePath)) {
+                  ImGui::CloseCurrentPopup();
+                  filePathBuffer[0] = '\0'; // Clear buffer
+              } else {
+                  g_fileDialogError = true;
+                  g_fileDialogErrorMessage = "Failed to save file";
+              }
+          }
+          
+          ImGui::SameLine();
+          if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+              ImGui::CloseCurrentPopup();
+              filePathBuffer[0] = '\0';
+          }
+          
+          ImGui::EndPopup();
+      }
+      
+      // Load dialog
+      if (g_showLoadDialog) {
+          ImGui::OpenPopup("Load Node Graph");
+          g_fileDialogPath = "";
+          g_fileDialogError = false;
+          g_showLoadDialog = false;
+      }
+      
+if (ImGui::BeginPopupModal("Load Node Graph", nullptr, 
+                                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+            
+            ImGui::Text("Load node graph from JSON file:");
+            ImGui::Spacing();
+          
+          // File path input
+          static char loadFilePathBuffer[256] = "";
+          ImGui::InputText("File path", loadFilePathBuffer, sizeof(loadFilePathBuffer));
+          
+          ImGui::Spacing();
+          
+          if (g_fileDialogError) {
+              ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Error: %s", g_fileDialogErrorMessage.c_str());
+              ImGui::Spacing();
+          }
+          
+          if (ImGui::Button("Load", ImVec2(120, 0))) {
+              std::string filePath = loadFilePathBuffer;
+              if (filePath.empty()) {
+                  g_fileDialogError = true;
+                  g_fileDialogErrorMessage = "File path cannot be empty";
+              } else if (g_nodeGraphWidget->loadFromFile(filePath)) {
+                  ImGui::CloseCurrentPopup();
+                  loadFilePathBuffer[0] = '\0'; // Clear buffer
+              } else {
+                  g_fileDialogError = true;
+                  g_fileDialogErrorMessage = "Failed to load file";
+              }
+          }
+          
+          ImGui::SameLine();
+          if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+              ImGui::CloseCurrentPopup();
+              loadFilePathBuffer[0] = '\0';
+          }
+          
+          ImGui::EndPopup();
+      }
+
+      // Render node graph if visible
+      if (g_showNodeGraph) {
+          g_nodeGraphWidget->render();
+          // Input is handled by the widget itself
+      }
 
     ImGui::Render();
 }
