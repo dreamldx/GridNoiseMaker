@@ -8,6 +8,7 @@
 # Build artifacts (anticipated for upcoming C++ work)
 build/
 out/
+bin/
 cmake-build-*/
 
 # IDE caches
