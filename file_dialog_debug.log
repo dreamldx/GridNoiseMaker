@@ -1,0 +1,3 @@
+[WindowsFileDialog] COM initialization succeeded
+[WindowsFileDialog] saveFileDialog called
+[WindowsFileDialog] m_platformWindowHandle: 0000023DC02BB600, glfwWindow: 0000023DC02BB600, hwndOwner: 0000000001B02508

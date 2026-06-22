@@ -1,3 +1,9 @@
+// vk_swapchain.cpp
+// Swapchain, image views, single-color render pass, and framebuffers for the
+// desktop host. Prefers B8G8R8A8_UNORM/sRGB and FIFO present, sizes itself to
+// the framebuffer, and provides recreate (after out-of-date/suboptimal or
+// resize, blocking while minimized) and reverse-order destroy.
+
 #include "vk_swapchain.h"
 #include "vk_check.h"
 

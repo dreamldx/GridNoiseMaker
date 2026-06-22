@@ -1,3 +1,9 @@
+// vk_frame.cpp
+// Per-frame-in-flight resources for the desktop host: a reset-able command pool
+// plus, for each of MAX_FRAMES_IN_FLIGHT slots, a command buffer, an
+// image-available semaphore, and an in-flight fence (created pre-signaled so the
+// first frame doesn't block). Render-finished semaphores live in the swapchain.
+
 #include "vk_frame.h"
 #include "vk_check.h"
 

@@ -1,3 +1,14 @@
+// Preferences.cpp
+// The Preferences window (a regular, non-modal ImGui window toggled from the
+// File menu) with three tabs:
+//   * General  — read-only build / platform / Vulkan-device info.
+//   * Theme    — a theme picker plus a master-detail editor over every color,
+//                metric, and typography field; edits autosave to the selected
+//                theme's user-dir file on commit and live-rebuild the font atlas.
+//   * About    — version + third-party license list.
+// Also holds the small preferences.json load/save helpers. See
+// specs/preferences-dialog and specs/gui-theme.
+
 #include "Preferences.h"
 
 #include "App.h"
@@ -112,6 +123,8 @@ constexpr BundledFont kBundledFonts[] = {
 
 // ---- Helpers ----
 
+// printf-style label drawn flush against the right edge of the current row,
+// used for the value column of the theme list.
 void rightAlignedText(const char* fmt, ...) {
     char buf[128];
     va_list args;
@@ -126,6 +139,7 @@ void rightAlignedText(const char* fmt, ...) {
     ImGui::TextUnformatted(buf);
 }
 
+// Right-aligned, non-interactive color preview chip for a theme color row.
 void drawColorSwatch(const ImVec4& c) {
     const float h = ImGui::GetTextLineHeight();
     const ImVec2 sz(h * 2.0f, h);
@@ -137,6 +151,8 @@ void drawColorSwatch(const ImVec4& c) {
                        sz);
 }
 
+// A selectable list row that, when clicked, records (kind, idx) as the active
+// theme-editor selection so the right pane knows what to edit. Returns true on click.
 bool selectableItem(SelectionKind kind, int idx, const char* label) {
     const bool isSelected = (g_selKind == kind && g_selIndex == idx);
     ImGui::PushID(label);
@@ -150,6 +166,8 @@ bool selectableItem(SelectionKind kind, int idx, const char* label) {
     return clicked;
 }
 
+// General tab: static app identity plus build/platform/Dear-ImGui info and,
+// on desktop, the Vulkan API version + GPU name (queried once and cached).
 void renderGeneralTab() {
 #if defined(IMGUI_SHELL_PLATFORM_DESKTOP)
     if (!g_vulkanQueried) {
@@ -192,6 +210,9 @@ void renderGeneralTab() {
     ImGui::TextWrapped("%s", app::themeConfigPath().c_str());
 }
 
+// Theme editor — left pane: the scrollable master list of every editable item
+// (all ImGuiCol_ colors with swatches, scalar + vec2 metrics, the custom
+// popup-menu margin, and typography), each a selectableItem feeding the right pane.
 void renderThemeLeftPane() {
     ImGuiStyle& style = ImGui::GetStyle();
 
@@ -248,6 +269,8 @@ void persistTheme() {
 std::vector<app::ThemeEntry> g_themes;
 int                          g_themePickerIndex = 0;
 
+// Reload the available-themes list and re-sync the picker index to the cached
+// selection. Called once per Theme-tab frame.
 void refreshThemeList() {
     g_themes = app::listAvailableThemes();
     const std::string& selected = app::selectedThemeName();
@@ -260,6 +283,11 @@ void refreshThemeList() {
     }
 }
 
+// Theme editor — right pane: the detail editor for whatever the left pane has
+// selected (color picker, metric slider/drag, font combo, font-size/margin
+// slider). Each control writes straight into the live ImGuiStyle and persists
+// the theme on commit (IsItemDeactivatedAfterEdit); font changes also trigger
+// an atlas rebuild.
 void renderThemeRightPane() {
     ImGuiStyle& style = ImGui::GetStyle();
 
@@ -378,6 +406,8 @@ void renderThemeRightPane() {
     }
 }
 
+// Theme tab: the picker combo, the two-column master-detail editor table, and
+// the "Reset to defaults" button (reverts the selected theme to its bundled file).
 void renderThemeTab() {
     // ---- Theme picker row (above the master-detail table) ----
     refreshThemeList();
@@ -435,6 +465,7 @@ void renderThemeTab() {
     }
 }
 
+// About tab: version, copyright, and the bundled third-party license credits.
 void renderAboutTab() {
     ImGui::Text("imgui-shell 0.1.0");
     ImGui::Spacing();
@@ -495,6 +526,7 @@ void renderPreferencesWindow() {
 
 namespace {
 
+// preferences.json sits beside theme.json in the per-user config dir.
 std::string preferencesPath() {
     std::filesystem::path p = app::themeConfigPath();
     p = p.parent_path() / "preferences.json";
@@ -503,10 +535,13 @@ std::string preferencesPath() {
 
 } // namespace
 
+// The context-menu margin is stored as the theme's popup-menu margin; these two
+// accessors bridge the older "preferences" naming to that single source of truth.
 float getContextMenuMargin() {
     return app::themePopupMenuMargin();
 }
 
+// Update the live margin and atomically persist it to preferences.json.
 void setContextMenuMargin(float margin) {
     app::setThemePopupMenuMargin(margin);
     
@@ -539,6 +574,9 @@ void setContextMenuMargin(float margin) {
     }
 }
 
+// Load preferences.json at startup (called from app::init). Currently only
+// validates the schema version; the margin value itself is owned by the theme
+// layer. Missing/invalid files are tolerated silently (defaults remain).
 void loadPreferences() {
     std::string path = preferencesPath();
     std::error_code ec;

@@ -1,3 +1,9 @@
+// NodeGraphWidget.cpp
+// Implementation of the node-graph canvas: type registry, JSON load/save, and
+// the per-frame render + input handling. All geometry is kept in world space
+// and converted to screen space through the grid renderer's ViewTransform at
+// draw time, so pan/zoom affect everything uniformly. See NodeGraphWidget.h.
+
 #include "NodeGraphWidget.h"
 #include "Theme.h"
 #include <imgui_internal.h>
@@ -5,23 +11,31 @@
 
 namespace nodegraph {
 
-NodeType::NodeType(const std::string& name, ImU32 defaultColor, 
+// ---- NodeType ----------------------------------------------------------
+
+// Construct a named type with its default body color and property template.
+NodeType::NodeType(const std::string& name, ImU32 defaultColor,
                    const nlohmann::json& defaultProperties)
     : name(name), defaultColor(defaultColor), defaultProperties(defaultProperties) {
 }
 
+// ---- NodeTypeRegistry --------------------------------------------------
+
 NodeTypeRegistry::NodeTypeRegistry() {
 }
 
+// Meyers singleton: the registry is constructed on first use and shared process-wide.
 NodeTypeRegistry& NodeTypeRegistry::instance() {
     static NodeTypeRegistry registry;
     return registry;
 }
 
+// Insert or overwrite the type keyed by its name.
 void NodeTypeRegistry::registerType(const NodeType& type) {
     m_types[type.name] = type;
 }
 
+// Look up a type by name; nullptr when absent.
 const NodeType* NodeTypeRegistry::getType(const std::string& name) const {
     auto it = m_types.find(name);
     if (it != m_types.end()) {
@@ -30,6 +44,7 @@ const NodeType* NodeTypeRegistry::getType(const std::string& name) const {
     return nullptr;
 }
 
+// Collect all registered type names (hash-map order, i.e. unspecified).
 std::vector<std::string> NodeTypeRegistry::getTypeNames() const {
     std::vector<std::string> names;
     names.reserve(m_types.size());
@@ -39,6 +54,8 @@ std::vector<std::string> NodeTypeRegistry::getTypeNames() const {
     return names;
 }
 
+// Stamp out a Node from a registered type's template at `position`. Unknown
+// types yield a bare "default" node rather than failing.
 Node NodeTypeRegistry::createNode(const std::string& typeName, const ImVec2& position) {
     const NodeType* type = getType(typeName);
     if (!type) {
@@ -61,9 +78,14 @@ Node NodeTypeRegistry::createNode(const std::string& typeName, const ImVec2& pos
     return node;
 }
 
+// ---- NodeGraphWidget ---------------------------------------------------
+
+// Build the grid renderer, register the three built-in node types in the
+// shared registry, and seed the canvas with a small demo input/processor/output
+// graph so a fresh launch isn't empty.
 NodeGraphWidget::NodeGraphWidget() {
     m_gridRenderer = std::make_unique<SimpleGridRenderer>();
-    
+
     // Register default node types
     NodeTypeRegistry& registry = NodeTypeRegistry::instance();
     registry.registerType(NodeType("input", IM_COL32(60, 60, 90, 255), 
@@ -92,6 +114,9 @@ NodeGraphWidget::NodeGraphWidget() {
 
 NodeGraphWidget::~NodeGraphWidget() = default;
 
+// Serialize the whole graph to a versioned JSON document: a "nodes" array plus
+// a "nodeTypes" object mirroring the registry (so a file is self-describing and
+// can re-register its types on load). "version" gates future schema migrations.
 nlohmann::json NodeGraphWidget::toJson() const {
     nlohmann::json j;
     j["version"] = 1;
@@ -127,6 +152,10 @@ nlohmann::json NodeGraphWidget::toJson() const {
     return j;
 }
 
+// Replace the current graph from a parsed JSON document. Returns false (leaving
+// state as-is on a thrown exception, or cleared-then-partially-filled otherwise)
+// if the document lacks a recognized "version". Any exception is swallowed and
+// reported as a boolean failure so a bad file never crashes the app.
 bool NodeGraphWidget::fromJson(const nlohmann::json& j) {
     try {
         // Check version - support version 1 only for now
@@ -172,6 +201,8 @@ bool NodeGraphWidget::fromJson(const nlohmann::json& j) {
     }
 }
 
+// Write the graph to `filePath` as pretty-printed JSON (4-space indent).
+// Returns false on open/serialize failure; never throws.
 bool NodeGraphWidget::saveToFile(const std::string& filePath) const {
     try {
         nlohmann::json j = toJson();
@@ -187,6 +218,8 @@ bool NodeGraphWidget::saveToFile(const std::string& filePath) const {
     }
 }
 
+// Read and parse `filePath`, then apply it via fromJson. Returns false on
+// open/parse/validation failure; never throws.
 bool NodeGraphWidget::loadFromFile(const std::string& filePath) {
     try {
         std::ifstream file(filePath);
@@ -201,6 +234,10 @@ bool NodeGraphWidget::loadFromFile(const std::string& filePath) {
     }
 }
 
+// Emit the canvas for this frame. Draws into a borderless, non-movable window
+// pinned to the viewport work area (below the main menu bar): grid background,
+// nodes, a small toolbar, and a right-click context menu whose padding is
+// driven by the theme's popup-menu margin. Input is handled inline.
 void NodeGraphWidget::render() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     
@@ -272,9 +309,13 @@ void NodeGraphWidget::render() {
     ImGui::PopStyleVar();
 }
 
+// Per-frame input: middle-drag pans, Ctrl+wheel zooms about the cursor,
+// right-click opens the context menu, and left-press/drag moves nodes. All
+// gated on the canvas window being hovered so it doesn't steal input from
+// overlapping ImGui widgets.
 void NodeGraphWidget::handleInput() {
     ImGuiIO& io = ImGui::GetIO();
-    
+
     // Middle mouse drag for panning
     if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) && ImGui::IsWindowHovered()) {
         if (!m_isDraggingView) {
@@ -304,6 +345,9 @@ void NodeGraphWidget::handleInput() {
     updateNodeDragging(io.MousePos, ImGui::IsMouseDown(ImGuiMouseButton_Left));
 }
 
+// Draw every node back-to-front: convert its world-space rect to screen space
+// via the current view, then emit a filled body, a border, and the title text.
+// Draw order is vector order, so later nodes render on top.
 void NodeGraphWidget::drawNodes(ImDrawList* drawList) {
     for (auto& node : m_nodes) {
         ImVec2 screenPos = m_gridRenderer->getView().worldToScreen(node.position);
@@ -329,6 +373,9 @@ void NodeGraphWidget::drawNodes(ImDrawList* drawList) {
     }
 }
 
+// Drag at most one node per gesture. On the initial left-press, hit-test
+// top-most-first and latch that node; while held, translate the latched node by
+// the screen mouse delta converted to world units; on release, clear all latches.
 void NodeGraphWidget::updateNodeDragging(const ImVec2& mousePos, bool mouseDown) {
     ImGuiIO& io = ImGui::GetIO();
     const ViewTransform& view = m_gridRenderer->getView();

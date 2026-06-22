@@ -1,3 +1,9 @@
+// vk_device.cpp
+// Surface + physical/logical device selection for the desktop host: creates the
+// GLFW window surface, picks the first physical device exposing a single queue
+// family that supports both graphics and present plus VK_KHR_swapchain, and
+// creates the logical device (adding VK_KHR_portability_subset under MoltenVK).
+
 #include "vk_device.h"
 #include "vk_check.h"
 

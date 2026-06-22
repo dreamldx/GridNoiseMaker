@@ -1,3 +1,9 @@
+// vk_instance.cpp
+// VkInstance creation/teardown for the desktop host: gathers GLFW-required
+// surface extensions, opts into MoltenVK portability enumeration when present,
+// and in debug builds enables the Khronos validation layer + a debug-utils
+// messenger that logs to stderr and aborts on validation errors.
+
 #include "vk_instance.h"
 #include "vk_check.h"
 

@@ -241,6 +241,11 @@ void onRefresh(GLFWwindow* w) {
     resizeCallbackWork(w);
 }
 
+// Full desktop host lifecycle: init GLFW + Vulkan (instance/device/swapchain/
+// frames/descriptor pool), populate RenderContext and call app::init, bring up
+// the ImGui GLFW+Vulkan backends, wire the live-resize and font-rebuild
+// callbacks, run the main render loop until quit, then tear everything down in
+// strict reverse order (backends before app::shutdown — see specs/render-backend).
 void runApp() {
     if (!glfwInit()) {
         throw std::runtime_error("glfwInit failed");

@@ -1,3 +1,12 @@
+// ThemeStorage.cpp
+// On-disk persistence for themes and the active selection. Resolves the per-OS
+// config root (XDG / APPDATA / iOS Documents), reads/writes the selection file
+// (theme.json), parses and serializes per-theme files (colors / metrics /
+// typography blocks), enumerates bundled+user themes (user wins on name
+// collision), and migrates the legacy single-file theme.json into the modern
+// selection-only schema. All writes are atomic (temp file + rename). See
+// specs/theme-persistence and specs/theme-presets.
+
 #include "ThemeStorage.h"
 
 #include "App.h"        // resolveAssetPath, setDocumentsPath forward

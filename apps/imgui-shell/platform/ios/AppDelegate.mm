@@ -1,3 +1,7 @@
+// AppDelegate.mm (iOS host)
+// Minimal UIApplicationDelegate: on launch it creates the key UIWindow and
+// installs ViewController (which owns Metal + ImGui) as its root. All rendering
+// and lifecycle work lives in ViewController.mm.
 #import "AppDelegate.h"
 #import "ViewController.h"
 

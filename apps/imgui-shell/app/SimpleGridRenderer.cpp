@@ -1,3 +1,10 @@
+// SimpleGridRenderer.cpp
+// Draws an infinite, zoom-adaptive reference grid for the node canvas. It owns
+// a ViewTransform (the single source of truth for pan/zoom) and forwards
+// pan/zoom/reset to it. drawGridLines walks the visible world rectangle and
+// emits minor + major lines, widening grid spacing as the user zooms out so the
+// on-screen line density stays roughly constant.
+
 #include "SimpleGridRenderer.h"
 #include <cmath>
 
@@ -12,25 +19,32 @@ constexpr float MIN_CANVAS_SIZE = 1.0f;
 
 SimpleGridRenderer::SimpleGridRenderer() : m_view() {}
 
+// Sync the view's viewport to the current canvas rect, then draw the grid.
+// Must be called every frame before any world<->screen conversions, because
+// the canvas position/size can change with window resizes.
 void SimpleGridRenderer::draw(ImDrawList* drawList, const ImVec2& canvasPos, const ImVec2& canvasSize) {
     // Update viewport position and size
     m_view.setViewport(canvasPos, canvasSize);
-    
+
     drawGridLines(drawList, canvasPos, canvasSize);
 }
 
+// Pan the view by a screen-space delta (forwarded to ViewTransform).
 void SimpleGridRenderer::pan(const ImVec2& deltaScreen) {
     m_view.pan(deltaScreen);
 }
 
+// Zoom about a screen point (forwarded to ViewTransform).
 void SimpleGridRenderer::zoom(float delta, const ImVec2& centerScreen) {
     m_view.zoom(delta, centerScreen);
 }
 
+// Recenter and reset zoom to 1.0.
 void SimpleGridRenderer::reset() {
     m_view.reset();
 }
 
+// Set base (zoom == 1) grid spacing in world units, floored at MIN_GRID_SPACING.
 void SimpleGridRenderer::setGridSize(float size) {
     if (size < MIN_GRID_SPACING) {
         size = MIN_GRID_SPACING;
@@ -58,6 +72,10 @@ ImU32 SimpleGridRenderer::getMajorGridColor() const {
     return m_majorGridColor;
 }
 
+// Draw the visible grid. Maps the canvas corners into world space to find the
+// visible range, chooses a zoom-adaptive spacing, then iterates that range
+// emitting vertical+horizontal minor lines and heavier major lines every
+// MAJOR_LINE_INTERVAL steps. Bails out for degenerate canvas/spacing sizes.
 void SimpleGridRenderer::drawGridLines(ImDrawList* drawList, const ImVec2& canvasPos, const ImVec2& canvasSize) {
     // Early return for invalid canvas sizes
     if (canvasSize.x < MIN_CANVAS_SIZE || canvasSize.y < MIN_CANVAS_SIZE) {
