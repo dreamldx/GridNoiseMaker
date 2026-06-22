@@ -15,6 +15,8 @@
 #include "NodeGraphWidget.h"
 // File dialog abstraction
 #include "FileDialog.h"
+// Dialog manager
+#include "DialogManager.h"
 
 #include <imgui.h>
 
@@ -178,7 +180,10 @@ void init(RenderContext& ctx) {
 // Auto-load default node graph project
     std::string defaultPath = resolveAssetPath("default_node_graph.json");
     if (std::filesystem::exists(defaultPath)) {
-        g_nodeGraphWidget->loadFromFile(defaultPath);
+        std::vector<std::string> skippedTypes;
+int skippedCount = 0;
+g_nodeGraphWidget->loadFromFile(defaultPath, &skippedTypes, &skippedCount);
+// Note: Don't show dialog for auto-load at startup to avoid interrupting user
     }
     
     // Create platform-specific file dialog instance
@@ -259,8 +264,14 @@ void frame(RenderContext& /*ctx*/) {
                     if (g_fileDialog) {
                         std::string filePath = g_fileDialog->openFileDialog("");
                         if (!filePath.empty()) {
-                            if (g_nodeGraphWidget->loadFromFile(filePath)) {
+                            std::vector<std::string> skippedTypes;
+                            int skippedCount = 0;
+                            if (g_nodeGraphWidget->loadFromFile(filePath, &skippedTypes, &skippedCount)) {
                                 g_fileDialogError = false;
+                                // Show dialog if nodes were skipped due to unknown types
+                                if (skippedCount > 0) {
+                                    DialogManager::instance().setUnknownNodeTypes(skippedTypes, skippedCount);
+                                }
                             } else {
                                 g_fileDialogError = true;
                                 g_fileDialogErrorMessage = "Failed to load file";
@@ -338,6 +349,40 @@ void frame(RenderContext& /*ctx*/) {
         ImGui::Spacing();
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Unknown node types dialog - shown when loading a file with nodes of unknown types
+    if (DialogManager::instance().shouldShowUnknownNodeTypesDialog()) {
+        ImGui::OpenPopup("Unknown Node Types");
+        DialogManager::instance().resetUnknownNodeTypesDialog();
+    }
+    
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal("Unknown Node Types", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::Text("Some nodes were skipped during loading");
+        ImGui::Separator();
+        
+        ImGui::Text("Total nodes skipped: %d", DialogManager::instance().getUnknownNodeCount());
+        ImGui::Text("Unknown node types:");
+        
+        ImGui::Indent();
+        for (const auto& typeName : DialogManager::instance().getUnknownNodeTypes()) {
+            ImGui::BulletText("%s", typeName.c_str());
+        }
+        ImGui::Unindent();
+        
+        ImGui::Spacing();
+        ImGui::TextWrapped("These nodes were skipped because their types are not registered in the current session.");
+        ImGui::TextWrapped("To load these nodes, you need to register their types first.");
+        
+        ImGui::Spacing();
+        if (ImGui::Button("OK", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+            // Clear dialog state via DialogManager
+            DialogManager::instance().resetUnknownNodeTypesDialog();
         }
         ImGui::EndPopup();
     }

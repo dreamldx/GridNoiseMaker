@@ -127,4 +127,9 @@ The node graph widget SHALL support persistence operations for saving and loadin
 - **THEN** the node graph widget SHALL integrate with JSON serialization using nlohmann/json
 - **AND** SHALL serialize vector data as arrays (`[x, y]` for positions/sizes)
 - **AND** SHALL serialize colors as RGBA arrays (`[r, g, b, a]`)
-- **AND** SHALL maintain backward compatibility with existing node rendering
+#### Scenario: Type validation during persistence operations
+- **WHEN** the node graph widget loads nodes from JSON
+- **THEN** it SHALL validate node type names against the NodeTypeRegistry
+- **AND** SHALL skip nodes with unknown types
+- **AND** SHALL collect statistics on skipped nodes for user feedback
+- **AND** SHALL maintain existing functionality for all valid nodes

@@ -58,6 +58,9 @@ The system SHALL persist node graph state to JSON files and restore it from save
 
 - **THEN** the system SHALL display an error message to the user
 - **AND** SHALL not lose the current node graph state
-- **WHEN** a load operation fails (file not found, invalid JSON, etc.)
-- **THEN** the system SHALL display an error message to the user
-- **AND** SHALL maintain the existing node graph state or load defaults
+#### Scenario: Unknown type handling during loading
+- **WHEN** a JSON file contains nodes with type names not registered in NodeTypeRegistry
+- **THEN** the system SHALL skip those nodes during loading
+- **AND** SHALL display a dialog message listing all skipped node types and count
+- **AND** SHALL continue loading all valid nodes with registered types
+- **AND** SHALL not crash or reject the entire file due to unknown types

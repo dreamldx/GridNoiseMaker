@@ -11,73 +11,6 @@
 
 namespace nodegraph {
 
-// ---- NodeType ----------------------------------------------------------
-
-// Construct a named type with its default body color and property template.
-NodeType::NodeType(const std::string& name, ImU32 defaultColor,
-                   const nlohmann::json& defaultProperties)
-    : name(name), defaultColor(defaultColor), defaultProperties(defaultProperties) {
-}
-
-// ---- NodeTypeRegistry --------------------------------------------------
-
-NodeTypeRegistry::NodeTypeRegistry() {
-}
-
-// Meyers singleton: the registry is constructed on first use and shared process-wide.
-NodeTypeRegistry& NodeTypeRegistry::instance() {
-    static NodeTypeRegistry registry;
-    return registry;
-}
-
-// Insert or overwrite the type keyed by its name.
-void NodeTypeRegistry::registerType(const NodeType& type) {
-    m_types[type.name] = type;
-}
-
-// Look up a type by name; nullptr when absent.
-const NodeType* NodeTypeRegistry::getType(const std::string& name) const {
-    auto it = m_types.find(name);
-    if (it != m_types.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
-// Collect all registered type names (hash-map order, i.e. unspecified).
-std::vector<std::string> NodeTypeRegistry::getTypeNames() const {
-    std::vector<std::string> names;
-    names.reserve(m_types.size());
-    for (const auto& pair : m_types) {
-        names.push_back(pair.first);
-    }
-    return names;
-}
-
-// Stamp out a Node from a registered type's template at `position`. Unknown
-// types yield a bare "default" node rather than failing.
-Node NodeTypeRegistry::createNode(const std::string& typeName, const ImVec2& position) {
-    const NodeType* type = getType(typeName);
-    if (!type) {
-        // Fallback to default type
-        Node node;
-        node.position = position;
-        node.type = "default";
-        node.properties = nlohmann::json::object();
-        return node;
-    }
-    
-    Node node;
-    node.position = position;
-    node.size = ImVec2(100, 60);
-    node.color = type->defaultColor;
-    node.borderColor = IM_COL32(100, 100, 100, 255);
-    node.title = type->name;
-    node.type = type->name;
-    node.properties = type->defaultProperties;
-    return node;
-}
-
 // ---- NodeGraphWidget ---------------------------------------------------
 
 // Build the grid renderer, register the three built-in node types in the
@@ -156,7 +89,7 @@ nlohmann::json NodeGraphWidget::toJson() const {
 // state as-is on a thrown exception, or cleared-then-partially-filled otherwise)
 // if the document lacks a recognized "version". Any exception is swallowed and
 // reported as a boolean failure so a bad file never crashes the app.
-bool NodeGraphWidget::fromJson(const nlohmann::json& j) {
+bool NodeGraphWidget::fromJson(const nlohmann::json& j, std::vector<std::string>* outSkippedTypes, int* outSkippedCount) {
     try {
         // Check version - support version 1 only for now
         if (!j.contains("version")) {
@@ -171,11 +104,36 @@ bool NodeGraphWidget::fromJson(const nlohmann::json& j) {
         // Clear existing nodes
         m_nodes.clear();
         
-        // Deserialize nodes
+        // Initialize statistics if output parameters provided
+        std::vector<std::string> skippedTypesLocal;
+        int skippedCountLocal = 0;
+        
+        // Deserialize nodes with type validation
+        // Validates each node's type against NodeTypeRegistry, skips unknown types
+        // Collects statistics on skipped nodes for user feedback
         if (j.contains("nodes") && j["nodes"].is_array()) {
+            NodeTypeRegistry& registry = NodeTypeRegistry::instance();
             for (const auto& nodeJson : j["nodes"]) {
+                // Parse node from JSON
                 Node node;
                 from_json(nodeJson, node);
+                
+                // Validate node type against registry
+                // Returns nullptr if type name is not registered
+                const NodeType* type = registry.getType(node.type);
+                if (!type) {
+                    // Skip node with unknown type
+                    // This prevents creating "default" nodes with wrong properties
+                    skippedCountLocal++;
+                    // Track unique type names for user feedback
+                    if (std::find(skippedTypesLocal.begin(), skippedTypesLocal.end(), node.type) == skippedTypesLocal.end()) {
+                        skippedTypesLocal.push_back(node.type);
+                    }
+                    continue;
+                }
+                
+                // Add valid node to graph
+                // Only nodes with registered types are loaded
                 m_nodes.push_back(node);
             }
         }
@@ -195,6 +153,17 @@ bool NodeGraphWidget::fromJson(const nlohmann::json& j) {
             }
         }
         
+        // Return statistics if output parameters provided
+        // These statistics are used by App.cpp to show user feedback dialog
+        if (outSkippedTypes) {
+            *outSkippedTypes = skippedTypesLocal;
+        }
+        if (outSkippedCount) {
+            *outSkippedCount = skippedCountLocal;
+        }
+        
+        // Returns true even if some nodes were skipped
+        // This maintains backward compatibility: valid nodes are loaded, user gets feedback about skipped nodes
         return true;
     } catch (const std::exception& e) {
         return false;
@@ -220,7 +189,7 @@ bool NodeGraphWidget::saveToFile(const std::string& filePath) const {
 
 // Read and parse `filePath`, then apply it via fromJson. Returns false on
 // open/parse/validation failure; never throws.
-bool NodeGraphWidget::loadFromFile(const std::string& filePath) {
+bool NodeGraphWidget::loadFromFile(const std::string& filePath, std::vector<std::string>* outSkippedTypes, int* outSkippedCount) {
     try {
         std::ifstream file(filePath);
         if (!file.is_open()) {
@@ -228,7 +197,7 @@ bool NodeGraphWidget::loadFromFile(const std::string& filePath) {
         }
         nlohmann::json j;
         file >> j;
-        return fromJson(j);
+        return fromJson(j, outSkippedTypes, outSkippedCount);
     } catch (const std::exception& e) {
         return false;
     }

@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "position": [100, and 100],
+      "size": [120, 80],
+      "color": [60, 60, 90, 255],
+      "borderColor": [120, 120, 180, 255],
+      "title": "Valid Input Node",
+      "type": "input",
+      "properties": {
+        "value": 5.0,
+        "label": "Test Input"
+      }
+    },
+    {
+      "position": [300, 150],
+      "size": [150, 100],
+      "color": [60, 90, 60, 255],
+      "borderColor": [120, 180, 120, 255],
+      "title": "Valid Processor Node",
+      "type": "processor",
+      "properties": {
+        "operation": "multiply",
+        "inputs": 2
+      }
+    },
+    {
+      "position": [500, 100],
+      "size": [120, 80],
+      "color": [90, 60, 60, 255],
+      "borderColor": [180, 120, 120, 255],
+      "title": "Valid Output Node",
+      "type": "output",
+      "properties": {
+        "value": 0.0,
+        "label": "Test Output"
+      }
+    },
+    {
+      "position": [200, 300],
+      "size": [140, 90],
+      "color": [120, 80, 200, 255],
+      "borderColor": [180, 120, 255, 255],
+      "title": "Unknown Type Node 1",
+      "type": "custom_type_1",
+      "properties": {
+        "custom_param": "value1"
+      }
+    },
+    {
+      "position": [400, 350],
+      "size": [160, 100],
+      "color": [200, 120, 80, 255],
+      "borderColor": [255, 180, 120, 255],
+      "title": "Unknown Type Node 2",
+      "type": "custom_type_2",
+      "properties": {
+        "custom_param": "value2"
+      }
+    },
+    {
+      "position": [600, 320],
+      "size": [140, 90],
+      "color": [80, 200, 120, 255],
+      "borderColor": [120, 255, 180, 255],
+      "title": "Another Unknown Type",
+      "type": "custom_type_1",
+      "properties": {
+        "custom_param": "value3"
+      }
+    }
+  ]
+}

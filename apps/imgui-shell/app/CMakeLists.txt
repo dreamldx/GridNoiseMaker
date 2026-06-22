@@ -21,9 +21,17 @@ add_library(imgui_shell_app STATIC
     NodeGraphWidget.cpp
     NodeGraphWidget.h
     
+    # Node type registry files
+    NodeTypeRegistry.cpp
+    NodeTypeRegistry.h
+    
     # File dialog abstraction
     FileDialog.cpp
     FileDialog.h
+    
+    # Dialog manager
+    DialogManager.cpp
+    DialogManager.h
 )
 
 target_include_directories(imgui_shell_app PUBLIC

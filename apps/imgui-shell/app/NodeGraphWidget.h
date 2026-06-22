@@ -19,6 +19,7 @@
 #include <string>
 #include <unordered_map>
 #include "SimpleGridRenderer.h"
+#include "NodeTypeRegistry.h"
 #include <nlohmann/json.hpp>
 
 // IM_COL32 packs RGBA into a 32-bit ImU32. The component shift amounts are
@@ -34,45 +35,14 @@
 
 namespace nodegraph {
 
+// Forward declarations
 struct Node;
-
-// Describes a category of node ("input", "processor", "output", ...): the
-// default body color and the default JSON property bag that new nodes of this
-// type are stamped with. Templates only — individual Node instances carry their
-// own copies, so editing one node never mutates the type.
-class NodeType {
-public:
-    std::string name;
-    ImU32 defaultColor;
-    nlohmann::json defaultProperties;
-
-    NodeType() : name(""), defaultColor(IM_COL32(45, 45, 45, 255)), defaultProperties(nlohmann::json::object()) {}
-    NodeType(const std::string& name, ImU32 defaultColor = IM_COL32(45, 45, 45, 255),
-             const nlohmann::json& defaultProperties = nlohmann::json::object());
-};
+class NodeType;  // Now defined in NodeTypeRegistry.h
 
 // Process-wide registry of NodeTypes (Meyers singleton). The widget populates
 // it with the built-in types in its constructor; JSON load may register
 // additional types found in a saved file. Keyed by type name.
-class NodeTypeRegistry {
-public:
-    // Returns the single shared registry instance.
-    static NodeTypeRegistry& instance();
-
-    // Inserts or overwrites the type keyed by `type.name`.
-    void registerType(const NodeType& type);
-    // Returns the type for `name`, or nullptr if not registered.
-    const NodeType* getType(const std::string& name) const;
-    // Returns the names of all registered types (unordered).
-    std::vector<std::string> getTypeNames() const;
-    // Builds a Node from the named type's template at `position`. Falls back to
-    // a bare "default" node if the type is unknown.
-    Node createNode(const std::string& typeName, const ImVec2& position = ImVec2(0, 0));
-
-private:
-    NodeTypeRegistry();
-    std::unordered_map<std::string, NodeType> m_types;
-};
+// Now separated into NodeTypeRegistry.h/.cpp
 
 // One node on the canvas: a rectangle in WORLD coordinates (position/size are
 // pre-zoom), its colors, title, type tag, and a free-form JSON property bag.
@@ -196,9 +166,9 @@ public:
 
     // ---- JSON serialization (versioned; see specs/node-graph-persistence) ----
     nlohmann::json toJson() const;             // serialize nodes + type registry
-    bool fromJson(const nlohmann::json& j);    // replace state from a parsed doc
+    bool fromJson(const nlohmann::json& j, std::vector<std::string>* outSkippedTypes = nullptr, int* outSkippedCount = nullptr);    // replace state from a parsed doc, optionally return skipped types/count
     bool saveToFile(const std::string& filePath) const;  // toJson -> pretty file
-    bool loadFromFile(const std::string& filePath);      // parse file -> fromJson
+    bool loadFromFile(const std::string& filePath, std::vector<std::string>* outSkippedTypes = nullptr, int* outSkippedCount = nullptr);      // parse file -> fromJson, optionally return skipped types/count
 
 private:
     std::unique_ptr<SimpleGridRenderer> m_gridRenderer; // grid + pan/zoom view
