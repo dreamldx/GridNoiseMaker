@@ -71,17 +71,25 @@ add_custom_command(TARGET imgui_shell_desktop POST_BUILD
 )
 
 # Copy executable and assets to root bin/ folder for easy access
-add_custom_command(TARGET imgui_shell_desktop POST_BUILD
+# Using add_custom_target instead of POST_BUILD for reliable execution
+# Always copy without timestamp checking for guaranteed up-to-date binaries
+# Path calculation:
+# From apps/imgui-shell/platform/desktop:
+# - ../../../../ goes to project root (E:/Projects/imgui_playground)
+# - ../../assets goes to apps/imgui-shell/assets
+# Uses cmake -E copy on all platforms (works reliably on Windows, cross-platform on Unix)
+add_custom_target(copy_to_bin ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory
-        ${CMAKE_SOURCE_DIR}/../../../bin
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../bin
     COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:imgui_shell_desktop>
-        ${CMAKE_SOURCE_DIR}/../../../bin/
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../bin/
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
-        ${CMAKE_SOURCE_DIR}/../../../bin/assets
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../assets
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../bin/assets
     COMMENT "Copying executable and assets to root bin/ folder"
     VERBATIM
+    DEPENDS imgui_shell_desktop
 )
 
 

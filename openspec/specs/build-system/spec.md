@@ -99,6 +99,12 @@ The build SHALL copy `apps/imgui-shell/assets/fonts/Inter-Regular.ttf` (and its 
 - **WHEN** the iOS preset is built
 - **THEN** the produced `imgui_shell_ios.app` bundle SHALL contain `Resources/Inter-Regular.ttf` and `Resources/OFL.txt`
 
+#### Scenario: Executable reliably copied to bin folder
+- **WHEN** a desktop preset is built
+- **THEN** the executable SHALL be copied to the root `bin/` folder
+- **AND** the copy operation SHALL execute reliably on every build
+- **AND** the copied executable SHALL be up-to-date with the built executable
+
 ### Requirement: nlohmann/json dependency
 The project SHALL depend on `nlohmann/json` via CMake `FetchContent`, pinned to a specific upstream tag (`v3.11.3` at the time this change lands), available on every supported preset (`macos`, `windows`, `linux`, `ios`). nlohmann/json is header-only; no compiled artifact is produced. The dep SHALL be linked into the `imgui_shell_app` static library with PUBLIC visibility so all `app/` and `platform/*` code that includes it transitively gets the include path.
 
