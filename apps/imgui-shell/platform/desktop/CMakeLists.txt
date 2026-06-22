@@ -13,6 +13,24 @@ add_executable(imgui_shell_desktop
     vk_frame.h
 )
 
+# Platform-specific file dialog implementations
+if(WIN32)
+    target_sources(imgui_shell_desktop PRIVATE
+        file_dialog/WindowsFileDialog.cpp
+        file_dialog/WindowsFileDialog.h
+    )
+elseif(APPLE)
+    target_sources(imgui_shell_desktop PRIVATE
+        file_dialog/MacOSFileDialog.mm
+        file_dialog/MacOSFileDialog.h
+    )
+else() # Linux
+    target_sources(imgui_shell_desktop PRIVATE
+        file_dialog/LinuxFileDialog.cpp
+        file_dialog/LinuxFileDialog.h
+    )
+endif()
+
 # Add Windows resource file if building for Windows
 if(WIN32)
     target_sources(imgui_shell_desktop PRIVATE resources.rc resource.h)
@@ -25,6 +43,19 @@ target_link_libraries(imgui_shell_desktop PRIVATE
     glfw
     Vulkan::Vulkan
 )
+
+# Windows-specific libraries
+if(WIN32)
+    target_link_libraries(imgui_shell_desktop PRIVATE comdlg32 ole32 shell32)
+endif()
+
+# macOS-specific frameworks
+if(APPLE)
+    target_link_libraries(imgui_shell_desktop PRIVATE 
+        "-framework Foundation"
+        "-framework AppKit"
+        "-framework Cocoa")
+endif()
 
 target_compile_options(imgui_shell_desktop PRIVATE ${IMGUI_SHELL_WARNINGS})
 target_compile_features(imgui_shell_desktop PRIVATE cxx_std_17)

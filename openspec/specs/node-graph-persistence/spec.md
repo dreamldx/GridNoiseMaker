@@ -10,17 +10,21 @@ The system SHALL persist node graph state to JSON files and restore it from save
 
 #### Scenario: Save node graph to JSON file
 - **WHEN** the user selects "Save Node Graph" from the File menu
-- **THEN** the system SHALL save all node information to a JSON file
+- **THEN** the system SHALL present a native operating system file save dialog using platform-appropriate APIs
+- **AND** SHALL save all node information to the selected JSON file
 - **AND** SHALL include node positions, sizes, colors, titles, types, and type-specific properties
 - **AND** SHALL use the simple flat JSON structure defined in the design document
 - **AND** SHALL include a version field for future compatibility
+- **AND** SHALL fall back to ImGui modal text input if native dialog unavailable
 
 #### Scenario: Load node graph from JSON file
 - **WHEN** the user selects "Load Node Graph" from the File menu
-- **THEN** the system SHALL load node information from a JSON file
+- **THEN** the system SHALL present a native operating system file open dialog using platform-appropriate APIs
+- **AND** SHALL load node information from the selected JSON file
 - **AND** SHALL restore node positions, sizes, colors, titles, types, and type-specific properties
 - **AND** SHALL handle missing or invalid fields with appropriate defaults
 - **AND** SHALL validate the JSON structure and version compatibility
+- **AND** SHALL fall back to ImGui modal text input if native dialog unavailable
 
 #### Scenario: Auto-load default project at startup
 - **WHEN** the application starts

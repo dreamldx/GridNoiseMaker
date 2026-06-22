@@ -1,0 +1,127 @@
+{
+    "nodeTypes": {
+        "input": {
+            "defaultColor": [
+                60,
+                60,
+                90,
+                255
+            ],
+            "defaultProperties": {
+                "label": "Input",
+                "value": 0.0
+            }
+        },
+        "output": {
+            "defaultColor": [
+                90,
+                60,
+                60,
+                255
+            ],
+            "defaultProperties": {
+                "label": "Output",
+                "value": 0.0
+            }
+        },
+        "processor": {
+            "defaultColor": [
+                60,
+                90,
+                60,
+                255
+            ],
+            "defaultProperties": {
+                "inputs": 2,
+                "operation": "add"
+            }
+        }
+    },
+    "nodes": [
+        {
+            "borderColor": [
+                120,
+                120,
+                180,
+                255
+            ],
+            "color": [
+                60,
+                60,
+                90,
+                255
+            ],
+            "position": [
+                -421.0,
+                -37.0
+            ],
+            "properties": {
+                "label": "Input A",
+                "value": 5.0
+            },
+            "size": [
+                120.0,
+                80.0
+            ],
+            "title": "Input A",
+            "type": "input"
+        },
+        {
+            "borderColor": [
+                120,
+                180,
+                120,
+                255
+            ],
+            "color": [
+                60,
+                90,
+                60,
+                255
+            ],
+            "position": [
+                -76.0,
+                -43.0
+            ],
+            "properties": {
+                "inputs": 2,
+                "operation": "multiply"
+            },
+            "size": [
+                150.0,
+                100.0
+            ],
+            "title": "Processor",
+            "type": "processor"
+        },
+        {
+            "borderColor": [
+                180,
+                120,
+                120,
+                255
+            ],
+            "color": [
+                90,
+                60,
+                60,
+                255
+            ],
+            "position": [
+                301.0,
+                -34.0
+            ],
+            "properties": {
+                "label": "Final Output",
+                "value": 0.0
+            },
+            "size": [
+                120.0,
+                80.0
+            ],
+            "title": "Output",
+            "type": "output"
+        }
+    ],
+    "version": 1
+}

@@ -20,6 +20,10 @@ add_library(imgui_shell_app STATIC
     SimpleGridRenderer.h
     NodeGraphWidget.cpp
     NodeGraphWidget.h
+    
+    # File dialog abstraction
+    FileDialog.cpp
+    FileDialog.h
 )
 
 target_include_directories(imgui_shell_app PUBLIC
