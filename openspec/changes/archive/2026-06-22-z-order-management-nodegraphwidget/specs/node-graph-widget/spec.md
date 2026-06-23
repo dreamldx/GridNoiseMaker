@@ -3,7 +3,7 @@
 ## Purpose
 TBD: Provide grid-based node graph visualization with pan/zoom capabilities for data processing workflows.
 
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Node graph widget renders grid-based visualization
 The application SHALL provide a node graph widget that displays a grid-based workspace with pan and zoom capabilities, draggable nodes, z-order management, and fills the available viewport area at startup.
@@ -47,7 +47,7 @@ The application SHALL provide a node graph widget that displays a grid-based wor
 - **WHEN** a user selects a node by clicking it
 - **THEN** the selected node SHALL receive z-order value of 1
 - **AND** the node's z-order value SHALL be displayed at the bottom of the node
-- **AND** other nodes SHALL preserve their relative z-order hierarchy (nodes with original z-order less than selected node remain unchanged, nodes with original z-order greater than selected node shift down by 1)
+- **AND** any previously selected node SHALL revert to z-order value of 2
 
 ### Requirement: ViewTransform provides coordinate system conversion
 The system SHALL provide a ViewTransform class that maps between world space and screen space with uniform scaling (zoom) and translation.
@@ -78,43 +78,29 @@ The system SHALL provide grid rendering with consistent spacing and appearance a
 - **AND** major grid lines SHALL appear at regular intervals
 
 ### Requirement: Node graph widget provides context menu
-The node graph widget SHALL provide right-click context menus accessible anywhere in the canvas area, offering canvas-specific and node-specific operations.
+The node graph widget SHALL provide a right-click context menu accessible anywhere in the canvas area, offering common operations and placeholder items for future functionality.
 
-#### Scenario: Canvas context menu opens on right-click
-- **WHEN** the user right-clicks (ImGuiMouseButton_Right) on empty canvas area within the node graph widget
+#### Scenario: Context menu opens on right-click
+- **WHEN** the user right-clicks (ImGuiMouseButton_Right) anywhere within the node graph widget canvas area
 - **THEN** a context menu SHALL appear at the mouse cursor position
-- **AND** SHALL include canvas-specific options (Reset View, placeholder items)
-- **AND** SHALL be displayed using ImGui's standard popup menu styling
-- **AND** SHALL close automatically when another menu item is selected or when clicking outside the menu
-
-#### Scenario: Node context menu opens on right-click
-- **WHEN** the user right-clicks (ImGuiMouseButton_Right) on a node within the node graph widget
-- **THEN** the clicked node SHALL be selected and brought to foreground (z-order 1)
-- **AND** a node context menu SHALL appear at the mouse cursor position
-- **AND** SHALL include node-specific options (Delete Node, Duplicate Node, Node Properties)
 - **AND** SHALL be displayed using ImGui's standard popup menu styling
 - **AND** SHALL close automatically when another menu item is selected or when clicking outside the menu
 
 #### Scenario: Context menu includes Reset View option
-- **WHEN** the canvas context menu is open
+- **WHEN** the context menu is open
 - **THEN** it SHALL include a "Reset View" menu item
 - **AND** selecting "Reset View" SHALL reset the grid view to default zoom level (1.0) and centered position
 - **AND** SHALL have the same effect as clicking the "Reset View" button in the widget
 
-#### Scenario: Canvas context menu includes placeholder items with dividers
-- **WHEN** the canvas context menu is open
-- **THEN** it SHALL include placeholder menu items labeled "Placeholder 1", "Placeholder 2"
+#### Scenario: Context menu includes placeholder items with dividers
+- **WHEN** the context menu is open
+- **THEN** it SHALL include 5 placeholder menu items labeled "Menu Item 1", "Menu Item 2", ..., "Menu Item 5"
 - **AND** SHALL include separator lines (`ImGui::Separator`) between groups of menu items
 - **AND** placeholder items SHALL be visually distinct from functional items
 
-#### Scenario: Node context menu includes node-specific items
-- **WHEN** the node context menu is open
-- **THEN** it SHALL include "Delete Node", "Duplicate Node", and "Node Properties" menu items
-- **AND** SHALL include separator lines (`ImGui::Separator`) between groups of menu items
-
 #### Scenario: Context menu respects input priority
 - **WHEN** the user interacts with the node graph widget
-- **THEN** right-click SHALL not interfere with existing left-click (node dragging) or middle-click (view panning) functionality
+- **THEN** right-click SHALL not interfere with existing left-click (node dragging and selection) or middle-click (view panning) functionality
 - **AND** SHALL only trigger when no other mouse operation is active
 
 ### Requirement: Context menu integrates with existing input handling
@@ -140,6 +126,7 @@ The node graph widget SHALL support persistence operations for saving and loadin
 - **THEN** the node structure SHALL include fields for type information and properties
 - **AND** SHALL support serialization of all visual properties (position, size, color, borderColor, title)
 - **AND** SHALL support type-specific properties stored separately from visual properties
+- **AND** SHALL support serialization of z-order values
 
 #### Scenario: Type-based property system
 - **WHEN** the node graph widget is extended for persistence

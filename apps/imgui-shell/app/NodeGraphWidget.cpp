@@ -8,6 +8,8 @@
 #include "Theme.h"
 #include <imgui_internal.h>
 #include <fstream>
+#include <numeric>
+#include <algorithm>
 
 namespace nodegraph {
 
@@ -28,20 +30,23 @@ NodeGraphWidget::NodeGraphWidget() {
     registry.registerType(NodeType("output", IM_COL32(90, 60, 60, 255), 
         nlohmann::json::object({{"value", 0.0}, {"label", "Output"}})));
     
-    // Add some test nodes with type information
+    // Add some test nodes with type information - positioned to overlap for z-order testing
     Node inputNode{ImVec2(100, 100), ImVec2(120, 80), IM_COL32(60, 60, 90, 255), IM_COL32(120, 120, 180, 255), "Input A"};
     inputNode.type = "input";
     inputNode.properties = nlohmann::json::object({{"value", 5.0}, {"label", "Input A"}});
+    inputNode.zOrder = 3;  // Highest zOrder (drawn first, underneath)
     m_nodes.push_back(inputNode);
     
-    Node processNode{ImVec2(300, 150), ImVec2(150, 100), IM_COL32(60, 90, 60, 255), IM_COL32(120, 180, 120, 255), "Processor"};
+    Node processNode{ImVec2(120, 120), ImVec2(150, 100), IM_COL32(60, 90, 60, 255), IM_COL32(120, 180, 120, 255), "Processor"};
     processNode.type = "processor";
     processNode.properties = nlohmann::json::object({{"operation", "multiply"}, {"inputs", 2}});
+    processNode.zOrder = 2;  // Middle zOrder
     m_nodes.push_back(processNode);
     
-    Node outputNode{ImVec2(500, 100), ImVec2(120, 80), IM_COL32(90, 60, 60, 255), IM_COL32(180, 120, 120, 255), "Output"};
+    Node outputNode{ImVec2(140, 140), ImVec2(120, 80), IM_COL32(90, 60, 60, 255), IM_COL32(180, 120, 120, 255), "Output"};
     outputNode.type = "output";
     outputNode.properties = nlohmann::json::object({{"value", 0.0}, {"label", "Final Output"}});
+    outputNode.zOrder = 2;  // Same zOrder as processNode (tie goes to original order via stable_sort)
     m_nodes.push_back(outputNode);
 }
 
@@ -227,7 +232,8 @@ void NodeGraphWidget::render() {
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoBringToFrontOnFocus;
     
-    if (ImGui::Begin("Node Graph", nullptr, window_flags)) {
+    bool windowOpen = ImGui::Begin("Node Graph", nullptr, window_flags);
+    if (windowOpen) {
         m_canvasPos = ImGui::GetCursorScreenPos();
         m_canvasSize = ImGui::GetContentRegionAvail();
         
@@ -238,11 +244,14 @@ void NodeGraphWidget::render() {
         // Draw grid
         m_gridRenderer->draw(drawList, m_canvasPos, m_canvasSize);
         
+        // Handle input (must be before drawNodes to update z-order immediately)
+        handleInput();
+        
         // Draw nodes
         drawNodes(drawList);
         
-        // Handle input
-        handleInput();
+        // Draw context menus
+        drawContextMenus();
         
         // Reset button
         if (ImGui::Button("Reset View")) {
@@ -250,36 +259,13 @@ void NodeGraphWidget::render() {
         }
         ImGui::SameLine();
         ImGui::Text("Pan: Middle Mouse | Zoom: Ctrl+Mouse Wheel");
-
-        // Context menu with configurable margin and rectangular style
-        // Apply margin BEFORE BeginPopup so it affects the popup window creation
-        float margin = app::themePopupMenuMargin();
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(margin, margin));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        
-        if (ImGui::BeginPopupContextWindow("NodeGraphContextMenu", ImGuiPopupFlags_MouseButtonRight)) {
-            if (ImGui::MenuItem("Reset View")) {
-                m_gridRenderer->reset();
-            }
-            ImGui::Separator();
-            ImGui::MenuItem("Menu Item 1", nullptr, false, false);
-            ImGui::MenuItem("Menu Item 2", nullptr, false, false);
-            ImGui::MenuItem("Menu Item 3", nullptr, false, false);
-            ImGui::Separator();
-            ImGui::MenuItem("Menu Item 4", nullptr, false, false);
-            ImGui::MenuItem("Menu Item 5", nullptr, false, false);
-            
-            ImGui::EndPopup();
-        }
-        
-        ImGui::PopStyleVar(2); // Restore window padding and rounding
     }
     ImGui::End();
     ImGui::PopStyleVar();
 }
 
 // Per-frame input: middle-drag pans, Ctrl+wheel zooms about the cursor,
-// right-click opens the context menu, and left-press/drag moves nodes. All
+// right-click opens context menus (canvas or node), and left-press/drag moves nodes. All
 // gated on the canvas window being hovered so it doesn't steal input from
 // overlapping ImGui widgets.
 void NodeGraphWidget::handleInput() {
@@ -299,26 +285,28 @@ void NodeGraphWidget::handleInput() {
         m_isDraggingView = false;
     }
     
-    // Ctrl+Mouse wheel for zooming. Pass the raw wheel delta; ViewTransform::zoom
-    // already scales it by ZOOM_SPEED, so pre-multiplying here would double it.
-    if (io.KeyCtrl && ImGui::IsWindowHovered() && io.MouseWheel != 0.0f) {
-        m_gridRenderer->zoom(io.MouseWheel, io.MousePos);
-    }
-    
-    // Context menu trigger on right-click
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
-        ImGui::OpenPopup("NodeGraphContextMenu");
-    }
-    
-    // Update node dragging
-    updateNodeDragging(io.MousePos, ImGui::IsMouseDown(ImGuiMouseButton_Left));
-}
+      // Ctrl+Mouse wheel for zooming. Pass the raw wheel delta; ViewTransform::zoom
+      // already scales it by ZOOM_SPEED, so pre-multiplying here would double it.
+      if (io.KeyCtrl && ImGui::IsWindowHovered() && io.MouseWheel != 0.0f) {
+          m_gridRenderer->zoom(io.MouseWheel, io.MousePos);
+      }
+      
+      // Update node dragging for left-click, node selection for both left and right-click
+      updateNodeDragging(io.MousePos, ImGui::IsMouseDown(ImGuiMouseButton_Left), 
+          ImGui::IsMouseClicked(ImGuiMouseButton_Right));
+  }
 
 // Draw every node back-to-front: convert its world-space rect to screen space
 // via the current view, then emit a filled body, a border, and the title text.
-// Draw order is vector order, so later nodes render on top.
+// Nodes are sorted by zOrder (lower values draw on top).
 void NodeGraphWidget::drawNodes(ImDrawList* drawList) {
-    for (auto& node : m_nodes) {
+    // Get indices sorted by zOrder (descending, higher zOrder first)
+    // Lower zOrder values draw on top, so sort descending to draw higher zOrder first (underneath)
+    std::vector<size_t> sortedIndices = getSortedIndicesByZOrderDescending();
+    
+    // Draw nodes in sorted order (higher zOrder values drawn first, underneath)
+    for (size_t idx : sortedIndices) {
+        auto& node = m_nodes[idx];
         ImVec2 screenPos = m_gridRenderer->getView().worldToScreen(node.position);
         ImVec2 screenSize = ImVec2(node.size.x * m_gridRenderer->getView().getZoom(), node.size.y * m_gridRenderer->getView().getZoom());
         
@@ -329,62 +317,249 @@ void NodeGraphWidget::drawNodes(ImDrawList* drawList) {
             node.color, 4.0f
         );
         
-        // Draw node border
+        // Draw node border with highlighting for selected nodes
+        ImU32 borderColor = node.selected ? IM_COL32(255, 200, 50, 255) : node.borderColor; // Yellow for selected
+        float borderThickness = node.selected ? 3.0f : 2.0f;
         drawList->AddRect(
             screenPos,
             ImVec2(screenPos.x + screenSize.x, screenPos.y + screenSize.y),
-            node.borderColor, 4.0f, 0, 2.0f
+            borderColor, 4.0f, 0, borderThickness
         );
         
         // Draw node title
         ImVec2 textPos = ImVec2(screenPos.x + 8.0f, screenPos.y + 8.0f);
         drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), node.title.c_str());
+        
+        // Draw z-order value below the node (outside bounds)
+        std::string zOrderText = "Z: " + std::to_string(node.zOrder);
+        ImVec2 textSize = ImGui::CalcTextSize(zOrderText.c_str());
+        ImVec2 zOrderPos = ImVec2(
+            screenPos.x + (screenSize.x - textSize.x) * 0.5f,  // Center horizontally
+            screenPos.y + screenSize.y + 4.0f                   // Position below node
+        );
+        drawList->AddText(zOrderPos, IM_COL32(200, 200, 200, 200), zOrderText.c_str());
     }
 }
 
 // Drag at most one node per gesture. On the initial left-press, hit-test
-// top-most-first and latch that node; while held, translate the latched node by
+// top-most-first (lowest zOrder) and latch that node; while held, translate the latched node by
 // the screen mouse delta converted to world units; on release, clear all latches.
-void NodeGraphWidget::updateNodeDragging(const ImVec2& mousePos, bool mouseDown) {
+// Also handles node selection: clicked node becomes selected (zOrder=1), others deselected.
+// Right-click triggers selection without dragging.
+void NodeGraphWidget::updateNodeDragging(const ImVec2& mousePos, bool mouseDown, bool rightClick) {
     ImGuiIO& io = ImGui::GetIO();
     const ViewTransform& view = m_gridRenderer->getView();
     const float zoom = view.getZoom();
 
+    // Clear dragging flags when mouse is not down (for left-click dragging only)
     if (!mouseDown) {
-        // Mouse released, stop all dragging
         for (auto& node : m_nodes) {
             node.dragging = false;
         }
-        return;
     }
 
-    // Latch the node to drag on the initial press only. Re-running the hit test
-    // every frame would cancel the drag whenever a fast mouse motion outran the
-    // node and left its rect. Iterate back-to-front so the top-most (last drawn)
-    // node under the cursor wins, and pick exactly one.
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsWindowHovered()) {
-        for (auto& node : m_nodes) {
-            node.dragging = false;
+    // Handle selection on click (left-click for dragging, right-click for context menu)
+    bool mouseClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left) || rightClick;
+    // Allow hover check even when blocked by our own popup or active item
+    ImGuiHoveredFlags hoverFlags = ImGuiHoveredFlags_AllowWhenBlockedByPopup | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem;
+    bool windowHovered = ImGui::IsWindowHovered(hoverFlags);
+    if (mouseClicked && windowHovered) {
+        // Clear all dragging flags (only for left-click)
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            for (auto& node : m_nodes) {
+                node.dragging = false;
+            }
         }
-        for (auto it = m_nodes.rbegin(); it != m_nodes.rend(); ++it) {
-            Node& node = *it;
+        
+        // Create sorted indices by zOrder (descending, higher zOrder first)
+        std::vector<size_t> sortedIndices = getSortedIndicesByZOrderDescending();
+        
+        Node* clickedNode = nullptr;
+        size_t clickedNodeIndex = 0;
+        
+        // Check nodes in REVERSE sorted order (from lowest to highest zOrder)
+        // Since we draw higher zOrder first (underneath), lower zOrder last (on top)
+        // we want to hit test from lowest zOrder (on top) to highest (underneath)
+        for (auto it = sortedIndices.rbegin(); it != sortedIndices.rend(); ++it) {
+            size_t idx = *it;
+            Node& node = m_nodes[idx];
             ImVec2 screenPos = view.worldToScreen(node.position);
             ImVec2 screenSize = ImVec2(node.size.x * zoom, node.size.y * zoom);
             if (mousePos.x >= screenPos.x && mousePos.x <= screenPos.x + screenSize.x &&
                 mousePos.y >= screenPos.y && mousePos.y <= screenPos.y + screenSize.y) {
-                node.dragging = true;
+                clickedNode = &node;
+                clickedNodeIndex = idx;
                 break;
             }
+        }
+        
+        // Handle selection and z-order updates
+        if (clickedNode) {
+            // Store original z-order values before making any changes
+            std::vector<int> originalZOrders;
+            originalZOrders.reserve(m_nodes.size());
+            for (const auto& node : m_nodes) {
+                originalZOrders.push_back(node.zOrder);
+            }
+            
+            int clickedOriginalZOrder = clickedNode->zOrder;
+            
+            // Deselect all nodes first
+            for (auto& node : m_nodes) {
+                node.selected = false;
+            }
+            
+            // Apply hierarchical z-order preservation algorithm
+            // If clicked node already has zOrder 1, no changes to other nodes (idempotent)
+            // BREAKING CHANGE: Previously all non-selected nodes reset to zOrder 2.
+            // Now preserves relative hierarchy: nodes with zOrder <= clicked node's original zOrder
+            // shift down by 1, nodes with higher zOrder remain unchanged.
+            // Empty canvas click also preserves hierarchy instead of resetting to zOrder 2.
+            if (clickedOriginalZOrder != 1) {
+                for (size_t i = 0; i < m_nodes.size(); ++i) {
+                    if (i == clickedNodeIndex) {
+                        continue; // Skip clicked node, will be set to 1 below
+                    }
+                    
+                    int originalZOrder = originalZOrders[i];
+                    if (originalZOrder <= clickedOriginalZOrder) {
+                        // Shift down nodes with original zOrder less than or equal to clicked node's original zOrder
+                        m_nodes[i].zOrder = originalZOrder + 1;
+                    }
+                    // Nodes with originalZOrder > clickedOriginalZOrder remain unchanged
+                }
+            }
+            
+          // Select clicked node and set to zOrder 1
+          clickedNode->selected = true;
+          clickedNode->zOrder = 1;
+          clickedNode->dragging = ImGui::IsMouseClicked(ImGuiMouseButton_Left); // Only drag on left-click
+          
+          // If right-click, set context menu flag
+          if (rightClick) {
+              m_rightClickedNodeIndex = static_cast<int>(clickedNodeIndex);
+              m_showNodeContextMenu = true;
+          }
+        } else {
+          // Clicked on empty canvas - deselect all nodes, preserve z-order hierarchy
+          for (auto& node : m_nodes) {
+            node.selected = false;
+            // zOrder values remain unchanged to preserve hierarchy
+            // (previously reset all to zOrder 2, now keeps custom arrangements)
+          }
         }
     }
 
     // Move whichever node is latched, converting screen delta to world delta.
-    for (auto& node : m_nodes) {
-        if (node.dragging) {
-            node.position.x += io.MouseDelta.x / zoom;
-            node.position.y += io.MouseDelta.y / zoom;
+    // Only update dragging when mouse is down
+    if (mouseDown) {
+        for (auto& node : m_nodes) {
+            if (node.dragging) {
+                node.position.x += io.MouseDelta.x / zoom;
+                node.position.y += io.MouseDelta.y / zoom;
+            }
         }
     }
+}
+
+// Helper function to get indices sorted by zOrder (descending, higher zOrder first)
+std::vector<size_t> NodeGraphWidget::getSortedIndicesByZOrderDescending() const {
+    std::vector<size_t> indices(m_nodes.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::stable_sort(indices.begin(), indices.end(),
+        [this](size_t a, size_t b) {
+            return m_nodes[a].zOrder > m_nodes[b].zOrder;  // Higher zOrder first (drawn underneath)
+        });
+    return indices;
+}
+
+// Draw node and canvas context menus
+void NodeGraphWidget::drawContextMenus() {
+    // Apply theme's popup-menu margin to any context menus that open
+    // We push here so it's active when/if any popup begins
+    float margin = app::themePopupMenuMargin();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(margin, margin));
+    
+    // Canvas context menu (appears when right-clicking empty canvas)
+    // Only show if node context menu is not open
+    if (!ImGui::IsPopupOpen("NodeContextMenu") && ImGui::BeginPopupContextWindow("CanvasContextMenu")) {
+        bool closePopup = false;
+        
+        if (ImGui::MenuItem("Reset View")) {
+            m_gridRenderer->reset();
+            closePopup = true;
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Placeholder 1")) {
+            // Placeholder action
+            closePopup = true;
+        }
+        if (ImGui::MenuItem("Placeholder 2")) {
+            // Placeholder action  
+            closePopup = true;
+        }
+        
+        if (closePopup) {
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    // Node context menu (appears when right-clicking a node)
+    // Note: This needs to be triggered from updateNodeDragging
+    if (m_showNodeContextMenu && m_rightClickedNodeIndex >= 0 && m_rightClickedNodeIndex < m_nodes.size()) {
+        ImGui::OpenPopup("NodeContextMenu");
+        m_showNodeContextMenu = false; // Reset flag
+    }
+    
+    if (ImGui::BeginPopup("NodeContextMenu")) {
+        // Store node data before any vector modifications
+        Node nodeCopy = m_nodes[m_rightClickedNodeIndex];
+        
+        ImGui::Text("Node: %s", nodeCopy.title.c_str());
+        ImGui::Separator();
+        
+        bool closePopup = false;
+        
+        if (ImGui::MenuItem("Delete Node")) {
+            // Delete the node
+            m_nodes.erase(m_nodes.begin() + m_rightClickedNodeIndex);
+            m_rightClickedNodeIndex = -1;
+            closePopup = true;
+        }
+        
+        if (ImGui::MenuItem("Duplicate Node")) {
+            // Duplicate the node
+            Node newNode = nodeCopy;
+            newNode.position.x += 20.0f; // Offset slightly
+            newNode.position.y += 20.0f;
+            newNode.selected = false;
+            newNode.dragging = false;
+            newNode.zOrder = 2; // Default z-order
+            m_nodes.push_back(newNode);
+            closePopup = true;
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::MenuItem("Node Properties")) {
+            // Open properties dialog
+            // Placeholder for now
+            closePopup = true;
+        }
+        
+        if (closePopup) {
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    } else {
+        // Popup closed without selecting an item
+        m_rightClickedNodeIndex = -1;
+    }
+    
+    ImGui::PopStyleVar();
 }
 
 } // namespace nodegraph

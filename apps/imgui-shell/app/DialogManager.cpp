@@ -8,7 +8,7 @@ DialogManager& DialogManager::instance() {
     return manager;
 }
 
-DialogManager::DialogManager() {}
+DialogManager::DialogManager() = default;
 
 void DialogManager::setUnknownNodeTypes(const std::vector<std::string>& types, int count) {
     m_unknownNodeTypes = types;

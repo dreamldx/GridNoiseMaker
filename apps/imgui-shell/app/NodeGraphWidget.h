@@ -46,7 +46,8 @@ class NodeType;  // Now defined in NodeTypeRegistry.h
 
 // One node on the canvas: a rectangle in WORLD coordinates (position/size are
 // pre-zoom), its colors, title, type tag, and a free-form JSON property bag.
-// `dragging` is transient per-frame UI state, not persisted.
+// `dragging` and `selected` are transient per-frame UI state, not persisted.
+// `zOrder` controls rendering order: lower values draw on top (0=UI, 1=selected, 2=default).
 struct Node {
     ImVec2 position = ImVec2(0, 0);
     ImVec2 size = ImVec2(100, 60);
@@ -54,7 +55,9 @@ struct Node {
     ImU32 borderColor = IM_COL32(100, 100, 100, 255);
     std::string title = "Node";
     bool dragging = false;
+    bool selected = false;
     std::string type = "default";
+    int zOrder = 2;  // Lower values draw on top: 0=UI, 1=selected, 2=default
     nlohmann::json properties;
     
     // Type-safe property accessors over the JSON bag. getProperty returns
@@ -103,6 +106,7 @@ inline void to_json(nlohmann::json& j, const Node& node) {
         }},
         {"title", node.title},
         {"type", node.type},
+        {"zOrder", node.zOrder},
         {"properties", node.properties}
     });
 }
@@ -147,6 +151,10 @@ inline void from_json(const nlohmann::json& j, Node& node) {
         node.type = j["type"];
     }
     
+    if (j.contains("zOrder")) {
+        node.zOrder = j["zOrder"];
+    }
+    
     if (j.contains("properties")) {
         node.properties = j["properties"];
     }
@@ -177,10 +185,16 @@ private:
     ImVec2 m_canvasSize;                                // canvas size (screen px)
     bool m_isDraggingView = false;                      // middle-drag pan in progress
     ImVec2 m_lastMousePos;                              // anchor for pan delta
+    int m_rightClickedNodeIndex = -1;                   // node index right-clicked (-1 for canvas)
+    bool m_showNodeContextMenu = false;                 // show node context menu
 
     void handleInput();                                 // pan / zoom / context-menu / drag
     void drawNodes(ImDrawList* drawList);               // world->screen rects + titles
-    void updateNodeDragging(const ImVec2& mousePos, bool mouseDown); // node drag latch
+    void updateNodeDragging(const ImVec2& mousePos, bool mouseDown, bool rightClick = false); // node drag latch and selection
+    void drawContextMenus();                            // draw node and canvas context menus
+    
+    // Helper function to get indices sorted by zOrder (descending, higher zOrder first)
+    std::vector<size_t> getSortedIndicesByZOrderDescending() const;
 };
 
 } // namespace nodegraph
