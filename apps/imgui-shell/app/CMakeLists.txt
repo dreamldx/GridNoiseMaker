@@ -25,6 +25,10 @@ add_library(imgui_shell_app STATIC
     NodeTypeRegistry.cpp
     NodeTypeRegistry.h
     
+    # Node type panel
+    NodeTypePanel.cpp
+    NodeTypePanel.h
+    
     # File dialog abstraction
     FileDialog.cpp
     FileDialog.h

@@ -58,6 +58,9 @@ bool g_showPreferencesWindow = false;
 // ---- Tab state ----
 bool g_firstFrame = true;
 
+// ---- Node type panel state ----
+NodeTypePanelState g_nodeTypePanelState;
+
 // ---- Theme-editor selection state ----
 enum class SelectionKind { None, Color, ScalarMetric, Vec2Metric, FontFile, FontSize, PopupMenuMargin };
 SelectionKind g_selKind  = SelectionKind::None;
@@ -547,10 +550,24 @@ void setContextMenuMargin(float margin) {
     
     // Save to disk
     std::string path = preferencesPath();
-    nlohmann::json root = {
-        {"_schema_version", 1},
-        {"context_menu_margin", margin}
-    };
+    nlohmann::json root;
+    
+    // Try to load existing preferences first to preserve other data
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(path, ec)) {
+        try {
+            std::ifstream in(path);
+            if (in) {
+                root = nlohmann::json::parse(in);
+            }
+        } catch (...) {
+            // If we can't parse existing file, start fresh
+        }
+    }
+    
+    // Update margin value
+    root["_schema_version"] = 1;
+    root["context_menu_margin"] = margin;
     
     // Use atomic write similar to theme storage
     std::filesystem::path target(path);
@@ -571,6 +588,68 @@ void setContextMenuMargin(float margin) {
         std::filesystem::rename(tempPath, target);
     } catch (const std::exception& e) {
         std::fprintf(stderr, "[imgui-shell] failed to write preferences: %s\n", e.what());
+    }
+}
+
+// Node type panel preferences implementation
+NodeTypePanelState getNodeTypePanelState() {
+    return g_nodeTypePanelState;
+}
+
+void setNodeTypePanelState(const NodeTypePanelState& state) {
+    g_nodeTypePanelState = state;
+}
+
+void saveNodeTypePanelState() {
+    std::string path = preferencesPath();
+    nlohmann::json root;
+    
+    // Try to load existing preferences first
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(path, ec)) {
+        try {
+            std::ifstream in(path);
+            if (in) {
+                root = nlohmann::json::parse(in);
+            }
+        } catch (...) {
+            // If we can't parse existing file, start fresh
+        }
+    }
+    
+    // Update or add panel state
+    root["_schema_version"] = 1;
+    root["node_type_panel"] = {
+        {"visible", g_nodeTypePanelState.visible},
+        {"docked", g_nodeTypePanelState.docked},
+        {"floating", g_nodeTypePanelState.floating},
+        {"view_mode", g_nodeTypePanelState.viewMode},
+        {"width", g_nodeTypePanelState.width},
+        {"height", g_nodeTypePanelState.height},
+        {"floating_x", g_nodeTypePanelState.floatingX},
+        {"floating_y", g_nodeTypePanelState.floatingY},
+        {"dock_side", g_nodeTypePanelState.dockSide}
+    };
+    
+    // Use atomic write
+    std::filesystem::path target(path);
+    std::filesystem::path tempPath = target.string() + ".tmp." + std::to_string(IMGUI_SHELL_GETPID());
+    
+    try {
+        if (target.has_parent_path()) {
+            std::filesystem::create_directories(target.parent_path());
+        }
+        {
+            std::ofstream out(tempPath);
+            if (!out) {
+                std::fprintf(stderr, "[imgui-shell] could not open temp file '%s' for writing\n", tempPath.string().c_str());
+                return;
+            }
+            out << root.dump(2);
+        }
+        std::filesystem::rename(tempPath, target);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "[imgui-shell] failed to write panel preferences: %s\n", e.what());
     }
 }
 
@@ -597,7 +676,37 @@ void loadPreferences() {
         if (root.contains("_schema_version") && root["_schema_version"].is_number()) {
             int schema = root["_schema_version"];
             if (schema == 1) {
-                
+                // Load panel state if present
+                if (root.contains("node_type_panel") && root["node_type_panel"].is_object()) {
+                    const auto& panel = root["node_type_panel"];
+                    if (panel.contains("visible") && panel["visible"].is_boolean()) {
+                        g_nodeTypePanelState.visible = panel["visible"];
+                    }
+                    if (panel.contains("docked") && panel["docked"].is_boolean()) {
+                        g_nodeTypePanelState.docked = panel["docked"];
+                    }
+                    if (panel.contains("floating") && panel["floating"].is_boolean()) {
+                        g_nodeTypePanelState.floating = panel["floating"];
+                    }
+                    if (panel.contains("view_mode") && panel["view_mode"].is_number()) {
+                        g_nodeTypePanelState.viewMode = panel["view_mode"];
+                    }
+                    if (panel.contains("width") && panel["width"].is_number()) {
+                        g_nodeTypePanelState.width = panel["width"];
+                    }
+                    if (panel.contains("height") && panel["height"].is_number()) {
+                        g_nodeTypePanelState.height = panel["height"];
+                    }
+                    if (panel.contains("floating_x") && panel["floating_x"].is_number()) {
+                        g_nodeTypePanelState.floatingX = panel["floating_x"];
+                    }
+                    if (panel.contains("floating_y") && panel["floating_y"].is_number()) {
+                        g_nodeTypePanelState.floatingY = panel["floating_y"];
+                    }
+                    if (panel.contains("dock_side") && panel["dock_side"].is_string()) {
+                        g_nodeTypePanelState.dockSide = panel["dock_side"];
+                    }
+                }
             }
         }
     } catch (const nlohmann::json::exception& e) {

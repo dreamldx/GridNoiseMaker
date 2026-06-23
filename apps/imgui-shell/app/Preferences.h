@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace app {
 
 // The Preferences window is a single regular ImGui Begin window (not a modal
@@ -14,5 +16,22 @@ void renderPreferencesWindow();
 float getContextMenuMargin();
 void setContextMenuMargin(float margin);
 void loadPreferences();
+
+// Node type panel preferences
+struct NodeTypePanelState {
+    bool visible = true;
+    bool docked = true;
+    bool floating = false;
+    int viewMode = 0; // 0 = icon, 1 = list, 2 = detail
+    float width = 250.0f;
+    float height = 400.0f;
+    float floatingX = 0.0f;
+    float floatingY = 0.0f;
+    std::string dockSide = "left";
+};
+
+NodeTypePanelState getNodeTypePanelState();
+void setNodeTypePanelState(const NodeTypePanelState& state);
+void saveNodeTypePanelState();
 
 } // namespace app

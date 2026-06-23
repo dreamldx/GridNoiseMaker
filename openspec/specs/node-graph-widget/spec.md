@@ -6,12 +6,12 @@ TBD: Provide grid-based node graph visualization with pan/zoom capabilities for 
 ## Requirements
 
 ### Requirement: Node graph widget renders grid-based visualization
-The application SHALL provide a node graph widget that displays a grid-based workspace with pan and zoom capabilities, draggable nodes, z-order management, and fills the available viewport area at startup.
+The application SHALL provide a node graph widget that displays a grid-based workspace with pan and zoom capabilities, draggable nodes, z-order management, and shares space with auxiliary panels when present.
 
 #### Scenario: Node graph opens by default at application launch
 - **WHEN** the application launches with default configuration
 - **THEN** the node graph widget SHALL be visible
-- **AND** SHALL fill the entire client area below the menu bar
+- **AND** SHALL occupy the available workspace area below the menu bar and to the right of any docked panels
 - **AND** SHALL display a grid background with three test nodes (Input, Process, Output)
 - **AND** all nodes SHALL have initial z-order value of 2
 - **AND** UI elements SHALL have z-order value of 0
@@ -48,6 +48,21 @@ The application SHALL provide a node graph widget that displays a grid-based wor
 - **THEN** the selected node SHALL receive z-order value of 1
 - **AND** the node's z-order value SHALL be displayed at the bottom of the node
 - **AND** other nodes SHALL preserve their relative z-order hierarchy (nodes with original z-order less than selected node remain unchanged, nodes with original z-order greater than selected node shift down by 1)
+
+### Requirement: Node graph widget integrates with panels
+The node graph widget SHALL integrate with auxiliary panels such as the node type panel, adapting its layout and maintaining functionality when panels are present.
+
+#### Scenario: Layout adapts to docked panels
+- **WHEN** a panel (e.g., node type panel) is docked alongside the node graph widget
+- **THEN** the node graph workspace SHALL adjust its layout to share available space
+- **AND** SHALL maintain all existing functionality (pan, zoom, node manipulation)
+- **AND** SHALL preserve node positions and view state during layout adjustments
+
+#### Scenario: Workspace maintains functionality with floating panels
+- **WHEN** a panel is floating as a separate window
+- **THEN** the node graph workspace SHALL occupy the full client area below the menu bar
+- **AND** SHALL maintain all existing functionality
+- **AND** SHALL support drag-and-drop interactions with floating panels
 
 ### Requirement: ViewTransform provides coordinate system conversion
 The system SHALL provide a ViewTransform class that maps between world space and screen space with uniform scaling (zoom) and translation.

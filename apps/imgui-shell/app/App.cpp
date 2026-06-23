@@ -287,6 +287,16 @@ void frame(RenderContext& /*ctx*/) {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("View")) {
+            if (g_nodeGraphWidget) {
+                bool panelVisible = g_nodeGraphWidget->getNodeTypePanelVisible();
+                if (ImGui::MenuItem("Node Type Panel", nullptr, &panelVisible)) {
+                    g_nodeGraphWidget->setNodeTypePanelVisible(panelVisible);
+                }
+            }
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("ImGui Demo...")) {
                 wantOpenImGuiDemo = true;

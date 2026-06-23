@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include "SimpleGridRenderer.h"
 #include "NodeTypeRegistry.h"
+#include "NodeTypePanel.h"
 #include <nlohmann/json.hpp>
 
 // IM_COL32 packs RGBA into a 32-bit ImU32. The component shift amounts are
@@ -171,18 +172,26 @@ public:
     // Emits the full-viewport canvas window for this frame: grid, nodes,
     // toolbar, context menu, and input handling.
     void render();
+    
+    // Create a node from drag-and-drop
+    void createNodeFromDrag(const std::string& nodeTypeId, const ImVec2& screenPos);
 
     // ---- JSON serialization (versioned; see specs/node-graph-persistence) ----
     nlohmann::json toJson() const;             // serialize nodes + type registry
     bool fromJson(const nlohmann::json& j, std::vector<std::string>* outSkippedTypes = nullptr, int* outSkippedCount = nullptr);    // replace state from a parsed doc, optionally return skipped types/count
     bool saveToFile(const std::string& filePath) const;  // toJson -> pretty file
     bool loadFromFile(const std::string& filePath, std::vector<std::string>* outSkippedTypes = nullptr, int* outSkippedCount = nullptr);      // parse file -> fromJson, optionally return skipped types/count
+    
+    // ---- Panel control ----
+    bool getNodeTypePanelVisible() const;
+    void setNodeTypePanelVisible(bool visible);
 
 private:
     std::unique_ptr<SimpleGridRenderer> m_gridRenderer; // grid + pan/zoom view
-    std::vector<Node> m_nodes;                          // graph contents (draw order)
-    ImVec2 m_canvasPos;                                 // canvas top-left (screen px)
-    ImVec2 m_canvasSize;                                // canvas size (screen px)
+    std::vector<Node> m_nodes;                           // graph contents (draw order)
+    ImVec2 m_canvasPos;                                  // canvas top-left (screen px)
+    ImVec2 m_canvasSize;                                 // canvas size (screen px)
+    NodeTypePanel m_nodeTypePanel;                       // node type browsing panel
     bool m_isDraggingView = false;                      // middle-drag pan in progress
     ImVec2 m_lastMousePos;                              // anchor for pan delta
     int m_rightClickedNodeIndex = -1;                   // node index right-clicked (-1 for canvas)
@@ -192,6 +201,9 @@ private:
     void drawNodes(ImDrawList* drawList);               // world->screen rects + titles
     void updateNodeDragging(const ImVec2& mousePos, bool mouseDown, bool rightClick = false); // node drag latch and selection
     void drawContextMenus();                            // draw node and canvas context menus
+    
+    // Graph canvas rendering (for docking system)
+    void renderGraphCanvas();
     
     // Helper function to get indices sorted by zOrder (descending, higher zOrder first)
     std::vector<size_t> getSortedIndicesByZOrderDescending() const;

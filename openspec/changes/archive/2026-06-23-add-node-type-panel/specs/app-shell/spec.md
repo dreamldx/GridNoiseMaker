@@ -1,8 +1,5 @@
-# app-shell Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change imgui-cross-platform-app. Update Purpose after archive.
-## Requirements
 ### Requirement: Shared application core
 The system SHALL provide a shared application core, compilable as C++17, that contains all UI code and exposes a lifecycle interface (`init`, `frame`, `shutdown`) consumed by every platform host. The same `app/` source files MUST compile unchanged on macOS, Windows, Linux, and iOS.
 
@@ -40,48 +37,7 @@ Each platform host (desktop, iOS) SHALL own the platform-specific concerns and O
 - **WHEN** building for iOS
 - **THEN** the `platform/ios/` host SHALL create an `MTKView` (MetalKit view) inside a `UIViewController`, implement `MTKViewDelegate` callbacks (`drawInMTKView:` for per-frame calls, `mtkView:drawableSizeWillChange:` for resize), call `app::init` after the Metal device and command queue are ready, and forward all UIApplication lifecycle events (including entering background) to the shared core via a future extension point
 
-#### Scenario: iOS host supplies the documents path before init
-- **WHEN** the iOS target starts (in `ViewController::viewDidLoad` or equivalent, before `app::init` is invoked)
-- **THEN** the iOS host SHALL call `app::setDocumentsPath` with the result of `NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES)[0]` (or equivalent UTF-8 path string) so the shared `app/` code can resolve the theme config path inside the iOS Documents directory
-- **AND** desktop hosts SHALL NOT call `app::setDocumentsPath` (it is iOS-only; on desktop the theme path resolves via XDG_CONFIG_HOME / APPDATA env vars instead)
-
 #### Scenario: Application state persistence
 - **WHEN** the application runs on desktop
 - **THEN** user preferences (including panel layout, docking state, and UI configuration) SHALL be stored in a platform-appropriate location
 - **AND** SHALL be restored on subsequent application launches
-
-### Requirement: No business logic in v1
-This change delivers the shell only. The shared application core SHALL NOT include feature-specific business logic beyond what the ui-sample capability requires.
-
-#### Scenario: Shell-only deliverable
-- **WHEN** v1 of this change is archived
-.
-**THEN** the only UI present in `app/` is the sample UI defined by the ui-sample capability
-
-### Requirement: File menu includes node graph save/load operations
-The application shell SHALL provide save and load operations for node graphs in the File menu, allowing users to persist and restore node graph state.
-
-#### Scenario: Save Node Graph menu item
-- **WHEN** the File menu is open
-- **THEN** it SHALL include a "Save Node Graph" menu item
-- **AND** selecting this item SHALL open a native operating system file save dialog using platform-appropriate APIs (Windows comdlg32, macOS NSSavePanel, Linux GTK file chooser, iOS UIDocumentPickerViewController)
-- **AND** SHALL save the current node graph state to the selected JSON file
-- **AND** SHALL handle file operation errors gracefully with user feedback
-- **AND** SHALL fall back to ImGui modal text input if native dialog unavailable
-
-#### Scenario: Load Node Graph menu item
-- **WHEN** the File menu is open
-- **THEN** it SHALL include a "Load Node Graph" menu item
-- **AND** selecting this item SHALL open a native operating system file open dialog using platform-appropriate APIs (Windows comdlg32, macOS NSOpenPanel, Linux GTK file chooser, iOS UIDocumentPickerViewController)
-- **AND** SHALL load node graph state from the selected JSON file
--
- **AND** SHALL replace the current node graph with the loaded state
-- **AND** SHALL handle file format errors gracefully with user feedback
--P **AND** SHALL fall back to ImGui modal text input if native dialog unavailable
-
-#### Scenario: Menu integration with node graph widget
-- **WHEN** save/load menu items are implemented
-- **THEN** they SHALL call appropriate methods on the node graph widget
-- **AND** SHALL pass file paths to the widget for serialization/deserialization
-- **AND** SHALL not interfere with existing File menu functionality
-
