@@ -213,19 +213,77 @@ bool NodeGraphWidget::loadFromFile(const std::string& filePath, std::vector<std:
 // nodes, a small toolbar, and a right-click context menu whose padding is
 // driven by the theme's popup-menu margin. Input is handled inline.
 void NodeGraphWidget::render() {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    
-    // Get the main viewport
+    // Create a full-screen host window for the dock space
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     
-    // Set window position and size to fill the viewport work area (below menu bar)
+    // Set up the host window to fill the entire viewport
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowViewport(viewport->ID);
     
-    // Window flags - no title bar, no resize, no move
+    ImGuiWindowFlags host_window_flags = 
+        ImGuiWindowFlags_NoTitleBar | 
+        ImGuiWindowFlags_NoCollapse | 
+        ImGuiWindowFlags_NoResize | 
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | 
+        ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoBackground;
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    
+    static bool host_window_open = true;
+    ImGui::Begin("DockSpaceHost", &host_window_open, host_window_flags);
+    ImGui::PopStyleVar(3);
+    
+    // Create dock space inside the host window
+    ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+    
+    // Set up initial docking layout on first run
+    static bool layout_configured = false;
+    if (!layout_configured) {
+        layout_configured = true;
+        
+        // Clear any existing docking layout
+        ImGui::DockBuilderRemoveNode(dockspace_id);
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->WorkSize);
+        
+        // Split the dockspace into left and right
+        ImGuiID dock_main_id = dockspace_id;
+        ImGuiID dock_left_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.25f, nullptr, &dock_main_id);
+        
+        // Dock panel to left, graph to main/center
+        ImGui::DockBuilderDockWindow("Node Types", dock_left_id);
+        ImGui::DockBuilderDockWindow("Node Graph", dock_main_id);
+        
+        // Configure the left dock for panel (optional: no tab bar)
+        ImGuiDockNode* left_node = ImGui::DockBuilderGetNode(dock_left_id);
+        if (left_node) {
+            left_node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+        }
+        
+        // Finish building
+        ImGui::DockBuilderFinish(dockspace_id);
+    }
+    
+    ImGui::End();
+    
+    // Now render windows that will dock into the dock space
+    m_nodeTypePanel.render();
+    renderGraphCanvas();
+}
+
+void NodeGraphWidget::renderGraphCanvas() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    
+    // Window flags for the graph canvas
+    // Remove NoDocking flag to allow docking
     ImGuiWindowFlags window_flags = 
         ImGuiWindowFlags_NoTitleBar | 
-        ImGuiWindowFlags_NoResize | 
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoScrollbar | 
         ImGuiWindowFlags_NoScrollWithMouse |
@@ -243,6 +301,16 @@ void NodeGraphWidget::render() {
         
         // Draw grid
         m_gridRenderer->draw(drawList, m_canvasPos, m_canvasSize);
+        
+        // Handle drag-and-drop for node creation
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("NODE_TYPE")) {
+                const char* nodeTypeId = static_cast<const char*>(payload->Data);
+                ImVec2 dropPos = ImGui::GetMousePos();
+                createNodeFromDrag(nodeTypeId, dropPos);
+            }
+            ImGui::EndDragDropTarget();
+        }
         
         // Handle input (must be before drawNodes to update z-order immediately)
         handleInput();
@@ -560,6 +628,41 @@ void NodeGraphWidget::drawContextMenus() {
     }
     
     ImGui::PopStyleVar();
+}
+
+bool NodeGraphWidget::getNodeTypePanelVisible() const {
+    return m_nodeTypePanel.isVisible();
+}
+
+void NodeGraphWidget::setNodeTypePanelVisible(bool visible) {
+    m_nodeTypePanel.setVisible(visible);
+}
+
+void NodeGraphWidget::createNodeFromDrag(const std::string& nodeTypeId, const ImVec2& screenPos) {
+    // Get current view transform
+    const ViewTransform& view = m_gridRenderer->getView();
+    
+    // Convert screen position to world position using the view transform
+    // Note: screenToWorld expects screen position relative to viewport
+    // m_canvasPos is the viewport position, so adjust
+    ImVec2 relativeScreenPos = screenPos;
+    relativeScreenPos.x -= m_canvasPos.x;
+    relativeScreenPos.y -= m_canvasPos.y;
+    ImVec2 worldPos = view.screenToWorld(relativeScreenPos);
+    
+    // Create a new node
+    Node newNode;
+    newNode.title = "New " + nodeTypeId;
+    newNode.type = nodeTypeId;
+    newNode.position = worldPos;
+    newNode.size = ImVec2(100.0f, 60.0f);
+    newNode.color = IM_COL32(70, 130, 180, 255);
+    newNode.selected = false;
+    newNode.dragging = false;
+    newNode.zOrder = 1; // Above grid, below UI
+    
+    // Add to nodes list
+    m_nodes.push_back(newNode);
 }
 
 } // namespace nodegraph
