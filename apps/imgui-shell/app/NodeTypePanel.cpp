@@ -127,6 +127,7 @@ void NodeTypePanel::renderIconView() {
             ImGui::SameLine();
         }
         
+        ImGui::PushID(static_cast<int>(i));
         ImGui::BeginGroup();
         
         // Icon button with color
@@ -144,7 +145,7 @@ void NodeTypePanel::renderIconView() {
         
         // Make it draggable
         if (ImGui::BeginDragDropSource()) {
-            handleDragSource(m_nodeTypeIds[i], m_nodeTypeNames[i]);
+            handleDragSource(m_nodeTypeIds[i], m_nodeTypeNames[i], i);
             ImGui::EndDragDropSource();
         }
         
@@ -154,6 +155,7 @@ void NodeTypePanel::renderIconView() {
         ImGui::TextWrapped("%s", m_nodeTypeNames[i].c_str());
         
         ImGui::EndGroup();
+        ImGui::PopID();
     }
     
     ImGui::PopStyleVar();
@@ -178,7 +180,7 @@ void NodeTypePanel::renderListView() {
         
         // Make it draggable
         if (ImGui::BeginDragDropSource()) {
-            handleDragSource(m_nodeTypeIds[i], m_nodeTypeNames[i]);
+            handleDragSource(m_nodeTypeIds[i], m_nodeTypeNames[i], i);
             ImGui::EndDragDropSource();
         }
         
@@ -208,7 +210,7 @@ void NodeTypePanel::renderDetailView() {
         
         // Make the whole group draggable
         if (ImGui::BeginDragDropSource()) {
-            handleDragSource(m_nodeTypeIds[i], m_nodeTypeNames[i]);
+            handleDragSource(m_nodeTypeIds[i], m_nodeTypeNames[i], i);
             ImGui::EndDragDropSource();
         }
         
@@ -217,7 +219,7 @@ void NodeTypePanel::renderDetailView() {
     }
 }
 
-void NodeTypePanel::handleDragSource(const std::string& nodeTypeId, const std::string& nodeTypeName) {
+void NodeTypePanel::handleDragSource(const std::string& nodeTypeId, const std::string& nodeTypeName, size_t index) {
     // Set drag payload
     ImGui::SetDragDropPayload("NODE_TYPE", nodeTypeId.c_str(), nodeTypeId.size() + 1);
     
@@ -226,7 +228,14 @@ void NodeTypePanel::handleDragSource(const std::string& nodeTypeId, const std::s
     
     // Optional: Draw a preview image
     ImVec2 mousePos = ImGui::GetMousePos();
-    ImGui::GetWindowDrawList()->AddCircleFilled(mousePos, 10, ImGui::GetColorU32(m_nodeTypeColors[0]), 12);
+    
+    // Safety check for index bounds
+    if (index < m_nodeTypeColors.size()) {
+        ImGui::GetWindowDrawList()->AddCircleFilled(mousePos, 10, ImGui::GetColorU32(m_nodeTypeColors[index]), 12);
+    } else {
+        // Fallback to default color if index is out of bounds
+        ImGui::GetWindowDrawList()->AddCircleFilled(mousePos, 10, IM_COL32(255, 255, 255, 255), 12);
+    }
 }
 
 void NodeTypePanel::saveState() {

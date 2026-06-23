@@ -38,7 +38,7 @@ private:
     void renderListView();
     void renderDetailView();
     
-    void handleDragSource(const std::string& nodeTypeId, const std::string& nodeTypeName);
+    void handleDragSource(const std::string& nodeTypeId, const std::string& nodeTypeName, size_t index);
     
     app::NodeTypePanelState m_state;
     std::vector<std::string> m_nodeTypeIds;
