@@ -5,6 +5,7 @@
 // draw time, so pan/zoom affect everything uniformly. See NodeGraphWidget.h.
 
 #include "NodeGraphWidget.h"
+#include "Platform.h"  // app::kIsMacOS — gates the trackpad-pan branch
 #include "Theme.h"
 #include <imgui_internal.h>
 #include <fstream>
@@ -12,6 +13,13 @@
 #include <algorithm>
 
 namespace nodegraph {
+
+namespace {
+// Pan-scale multiplier for macOS two-finger trackpad swipes (specs/node-graph-widget
+// "View panning via two-finger trackpad swipe"). 12 px per "line-equivalent"
+// matches the visual feel of a native NSScrollView. Tune if interactive feel is off.
+constexpr float kTrackpadPanScalePx = 12.0f;
+} // namespace
 
 // ---- NodeGraphWidget ---------------------------------------------------
 
@@ -326,7 +334,11 @@ void NodeGraphWidget::renderGraphCanvas() {
             m_gridRenderer->reset();
         }
         ImGui::SameLine();
-        ImGui::Text("Pan: Middle Mouse | Zoom: Ctrl+Mouse Wheel");
+        if constexpr (app::kIsMacOS) {
+            ImGui::Text("Pan: Middle Mouse / Two-finger swipe | Zoom: Ctrl+Mouse Wheel");
+        } else {
+            ImGui::Text("Pan: Middle Mouse | Zoom: Ctrl+Mouse Wheel");
+        }
     }
     ImGui::End();
     ImGui::PopStyleVar();
@@ -352,7 +364,22 @@ void NodeGraphWidget::handleInput() {
     } else {
         m_isDraggingView = false;
     }
-    
+
+    // macOS: two-finger trackpad swipe (without Ctrl) pans the canvas.
+    // GLFW delivers the gesture as scroll deltas via ImGui's MouseWheel{,H};
+    // since plain wheel without Ctrl is otherwise unused by the canvas, we
+    // can claim it for pan. The KeyCtrl guard lets Ctrl+wheel keep zooming.
+    // See specs/node-graph-widget "View panning via two-finger trackpad swipe (macOS)".
+    if constexpr (app::kIsMacOS) {
+        if (!io.KeyCtrl && ImGui::IsWindowHovered() &&
+            (io.MouseWheel != 0.0f || io.MouseWheelH != 0.0f)) {
+            const ImVec2 delta(
+                io.MouseWheelH * kTrackpadPanScalePx,
+                io.MouseWheel  * kTrackpadPanScalePx);
+            m_gridRenderer->pan(delta);
+        }
+    }
+
       // Ctrl+Mouse wheel for zooming. Pass the raw wheel delta; ViewTransform::zoom
       // already scales it by ZOOM_SPEED, so pre-multiplying here would double it.
       if (io.KeyCtrl && ImGui::IsWindowHovered() && io.MouseWheel != 0.0f) {
