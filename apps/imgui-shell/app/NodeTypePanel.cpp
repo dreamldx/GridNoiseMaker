@@ -198,18 +198,19 @@ void NodeTypePanel::renderDetailView() {
     for (size_t i = 0; i < m_nodeTypeIds.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
         
-        // Color indicator
-        ImGui::ColorButton("##color", m_nodeTypeColors[i], ImGuiColorEditFlags_NoTooltip, ImVec2(20, 20));
+                // Color indicator (non-interactive visual)
+        ImGui::ColorButton("##color", m_nodeTypeColors[i], ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoBorder, ImVec2(20, 20));
         ImGui::SameLine();
         
-        // Name and details
+        // Name and details - vertically centered with color button
         ImGui::BeginGroup();
+        ImGui::AlignTextToFramePadding();
         ImGui::Text("%s", m_nodeTypeNames[i].c_str());
         ImGui::TextDisabled("ID: %s", m_nodeTypeIds[i].c_str());
         ImGui::EndGroup();
         
-        // Make the whole group draggable
-        if (ImGui::BeginDragDropSource()) {
+        // Make the whole row draggable
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
             handleDragSource(m_nodeTypeIds[i], m_nodeTypeNames[i], i);
             ImGui::EndDragDropSource();
         }
